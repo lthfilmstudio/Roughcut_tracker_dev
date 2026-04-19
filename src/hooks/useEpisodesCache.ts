@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  fetchEpisodesBatch, batchUpdateScenes, batchUpdateSummary,
-} from '../services/sheetsService'
+import { getDataService } from '../services'
 import { normalizeScene, computeEpisodeStats } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
-import { getTabNames, hasSummaryTab } from '../config/projectConfig'
+import { CURRENT_PROJECT, getTabNames, hasSummaryTab } from '../config/projectConfig'
 import type { SceneRow } from '../types'
 
 const EPISODES = getTabNames()
@@ -30,7 +28,8 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
     setLoading(true)
     setError('')
     try {
-      const batch = await fetchEpisodesBatch(EPISODES, token)
+      const svc = getDataService(token)
+      const batch = await svc.fetchEpisodesBatch(CURRENT_PROJECT, EPISODES)
       const normalized: EpisodesMap = {}
       const rewriteTargets: { ep: string; sorted: SceneRow[] }[] = []
       for (const ep of EPISODES) {
@@ -51,11 +50,11 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
 
       for (const { ep, sorted } of rewriteTargets) {
         const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
-        batchUpdateScenes(ep, updates, token).catch(() => {})
+        svc.batchUpdateScenes(CURRENT_PROJECT, ep, updates).catch(() => {})
       }
       if (hasSummaryTab()) {
         const items = EPISODES.map(ep => ({ ep, stats: computeEpisodeStats(normalized[ep]) }))
-        batchUpdateSummary(items, token).catch(() => {})
+        svc.batchUpdateSummary(CURRENT_PROJECT, items).catch(() => {})
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))

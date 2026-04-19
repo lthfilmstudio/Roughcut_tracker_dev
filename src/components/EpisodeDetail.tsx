@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  updateScene, appendScene, deleteScene,
-  batchUpdateScenes, batchDeleteScenes, updateSummaryRow,
-} from '../services/sheetsService'
+import { getDataService } from '../services'
 import type { SceneRow } from '../types'
 import {
   secsToHMS, formatRoughcutLength, formatDate, normalizeScene, computeEpisodeStats, todayYMD,
@@ -158,7 +155,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
 
   function syncSummary(rows: SceneRow[]) {
     if (!hasSummaryTab()) return
-    updateSummaryRow(episode, computeEpisodeStats(rows), token).catch(() => {})
+    getDataService(token).updateSummaryRow(CURRENT_PROJECT, episode, computeEpisodeStats(rows)).catch(() => {})
   }
 
   async function saveEdit(i: number, draftOverride?: SceneRow): Promise<SceneRow[] | null> {
@@ -166,15 +163,16 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     if (!currentDraft) return null
     setSaving(true)
     try {
+      const svc = getDataService(token)
       const cleaned = normalizeScene(currentDraft)
-      await updateScene(episode, i, cleaned, token)
+      await svc.updateScene(CURRENT_PROJECT, episode, i, cleaned)
       const replaced = scenes.map((r, idx) => idx === i ? cleaned : r)
       const sorted = sortScenes(replaced)
       setEditRow(null)
       setDraft(null)
       if (scenesOrderChanged(replaced, sorted)) {
         const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
-        await batchUpdateScenes(episode, updates, token).catch(() => {})
+        await svc.batchUpdateScenes(CURRENT_PROJECT, episode, updates).catch(() => {})
       }
       cache.setEpisodeScenes(episode, () => sorted)
       syncSummary(sorted)
@@ -191,15 +189,16 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     if (!newScene.scene) return
     setSaving(true)
     try {
+      const svc = getDataService(token)
       const cleaned = normalizeScene(newScene)
-      await appendScene(episode, cleaned, token)
+      await svc.appendScene(CURRENT_PROJECT, episode, cleaned)
       const appended = [...scenes, cleaned]
       const sorted = sortScenes(appended)
       setNewScene(EMPTY_SCENE)
       setShowAddRow(false)
       if (scenesOrderChanged(appended, sorted)) {
         const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
-        await batchUpdateScenes(episode, updates, token).catch(() => {})
+        await svc.batchUpdateScenes(CURRENT_PROJECT, episode, updates).catch(() => {})
       }
       cache.setEpisodeScenes(episode, () => sorted)
       syncSummary(sorted)
@@ -219,7 +218,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     if (!confirm(`確定刪除場次「${scenes[i].scene}」？`)) return
     setSaving(true)
     try {
-      await deleteScene(episode, i, token)
+      await getDataService(token).deleteScene(CURRENT_PROJECT, episode, i)
       const updated = scenes.filter((_, idx) => idx !== i)
       if (editRow === i) setEditRow(null)
       const sceneKey = scenes[i].scene
@@ -238,14 +237,15 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   }
 
   async function handleBatchImportScenes(newScenes: SceneRow[]) {
+    const svc = getDataService(token)
     for (const sc of newScenes) {
-      await appendScene(episode, sc, token)
+      await svc.appendScene(CURRENT_PROJECT, episode, sc)
     }
     const appended = [...scenes, ...newScenes]
     const sorted = sortScenes(appended)
     if (scenesOrderChanged(appended, sorted)) {
       const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
-      await batchUpdateScenes(episode, updates, token).catch(() => {})
+      await svc.batchUpdateScenes(CURRENT_PROJECT, episode, updates).catch(() => {})
     }
     cache.setEpisodeScenes(episode, () => sorted)
     syncSummary(sorted)
@@ -302,7 +302,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
         rowIndex: idx,
         scene: { ...row, status: newStatus },
       }))
-      await batchUpdateScenes(episode, updates, token)
+      await getDataService(token).batchUpdateScenes(CURRENT_PROJECT, episode, updates)
       const updated = scenes.map(r =>
         selectedScenes.has(r.scene) ? { ...r, status: newStatus } : r
       )
@@ -325,7 +325,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     setSaving(true)
     try {
       const rowIndices = targets.map(t => t.idx)
-      await batchDeleteScenes(episode, rowIndices, token)
+      await getDataService(token).batchDeleteScenes(CURRENT_PROJECT, episode, rowIndices)
       const removed = new Set(targets.map(t => t.row.scene))
       const updated = scenes.filter(r => !removed.has(r.scene))
       if (editRow !== null && removed.has(scenes[editRow].scene)) setEditRow(null)
