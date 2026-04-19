@@ -7,7 +7,8 @@ import DashboardExportCSV from './DashboardExportCSV'
 import ErrorView from './ErrorView'
 import ExportPDFModal from './ExportPDFModal'
 import { STUDIO_NAME } from '../config/sheets'
-import { CURRENT_PROJECT, projectTitle } from '../config/projectConfig'
+import { projectTitle } from '../config/projectConfig'
+import { useProject } from '../contexts/ProjectContext'
 
 interface Props {
   token: string
@@ -56,6 +57,7 @@ function buildHideCSS(opts: Record<string, boolean>): string {
 }
 
 export default function Dashboard({ cache, onSelectEpisode, onLogout }: Props) {
+  const { project } = useProject()
   const [hoveredEp, setHoveredEp] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
   const [showExportMD, setShowExportMD] = useState(false)
@@ -101,7 +103,7 @@ export default function Dashboard({ cache, onSelectEpisode, onLogout }: Props) {
       <nav style={s.nav} className="no-print">
         <div style={s.navTitleBox}>
           <span style={s.navTitle}>Roughcut Tracker</span>
-          <span style={s.navSub}>{projectTitle()}</span>
+          <span style={s.navSub}>{projectTitle(project)}</span>
         </div>
         <button style={s.logoutBtn} onClick={onLogout}>登出</button>
       </nav>
@@ -118,7 +120,7 @@ export default function Dashboard({ cache, onSelectEpisode, onLogout }: Props) {
                 <span className="print-studio">{STUDIO_NAME}</span>
                 <span className="print-meta">列印日期：{printDate}</span>
               </div>
-              <h1 className="print-title">{projectTitle()}剪輯進度報告</h1>
+              <h1 className="print-title">{projectTitle(project)}剪輯進度報告</h1>
             </div>
 
             {/* 列印用簡潔統計表 */}
@@ -294,7 +296,7 @@ export default function Dashboard({ cache, onSelectEpisode, onLogout }: Props) {
 
       {showExportMD && (
         <DashboardExportMD
-          showName={CURRENT_PROJECT.name}
+          showName={project.name}
           eps={eps}
           totals={totals}
           globalRoughcutPct={globalRoughcutPct}
@@ -307,7 +309,7 @@ export default function Dashboard({ cache, onSelectEpisode, onLogout }: Props) {
 
       {showExportCSV && (
         <DashboardExportCSV
-          showName={CURRENT_PROJECT.name}
+          showName={project.name}
           eps={eps}
           totals={totals}
           globalRoughcutPct={globalRoughcutPct}

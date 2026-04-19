@@ -4,25 +4,27 @@ import { useEpisodesCache } from './hooks/useEpisodesCache'
 import LoginScreen from './components/LoginScreen'
 import Dashboard from './components/Dashboard'
 import EpisodeDetail from './components/EpisodeDetail'
-import { CURRENT_PROJECT, getTabNames } from './config/projectConfig'
+import { getTabNames } from './config/projectConfig'
+import { useProject } from './contexts/ProjectContext'
 import './App.css'
 
 const APP_PASSWORD = import.meta.env.VITE_APP_PASSWORD ?? ''
-const IS_FILM = CURRENT_PROJECT.type === 'film'
-const FILM_TAB = getTabNames()[0] ?? 'Scenes'
 
 type View = { page: 'dashboard' } | { page: 'episode'; ep: string }
 
-const INITIAL_VIEW: View = IS_FILM
-  ? { page: 'episode', ep: FILM_TAB }
-  : { page: 'dashboard' }
-
 export default function App() {
+  const { project } = useProject()
+  const isFilm = project.type === 'film'
+  const filmTab = getTabNames(project)[0] ?? 'Scenes'
+  const initialView: View = isFilm
+    ? { page: 'episode', ep: filmTab }
+    : { page: 'dashboard' }
+
   const { isAuthenticated, accessToken, login, logout } = useAuth()
   const [passwordOk, setPasswordOk] = useState(
     () => sessionStorage.getItem('app_pwd_ok') === '1',
   )
-  const [view, setView] = useState<View>(INITIAL_VIEW)
+  const [view, setView] = useState<View>(initialView)
   const loginTriggered = useRef(false)
   const cache = useEpisodesCache(accessToken)
 
@@ -62,8 +64,8 @@ export default function App() {
         token={accessToken}
         cache={cache}
         onNavigate={(ep) => setView({ page: 'episode', ep })}
-        onBack={IS_FILM ? handleLogout : () => setView({ page: 'dashboard' })}
-        backLabel={IS_FILM ? '登出' : '← 返回總覽'}
+        onBack={isFilm ? handleLogout : () => setView({ page: 'dashboard' })}
+        backLabel={isFilm ? '登出' : '← 返回總覽'}
       />
     )
   }

@@ -14,9 +14,8 @@ import ExportPDFModal from './ExportPDFModal'
 import SceneTable, { EP_COL_DEFS, EP_PDF_FIELDS, EP_PDF_DEFAULTS } from './SceneTable'
 import SummaryBar from './SummaryBar'
 import { STUDIO_NAME } from '../config/sheets'
-import {
-  CURRENT_PROJECT, getTabNames, projectTitle, hasSummaryTab,
-} from '../config/projectConfig'
+import { getTabNames, projectTitle, hasSummaryTab } from '../config/projectConfig'
+import { useProject } from '../contexts/ProjectContext'
 
 interface Props {
   episode: string
@@ -26,9 +25,6 @@ interface Props {
   onBack: () => void
   backLabel?: string
 }
-
-const EPISODES = getTabNames()
-const IS_FILM = CURRENT_PROJECT.type === 'film'
 
 function buildEpHideCSS(opts: Record<string, boolean>): string {
   const hiddenCols = EP_COL_DEFS.filter(c => !opts[c.key]).map(c => `.pdf-col-${c.key}`)
@@ -43,6 +39,9 @@ function buildEpHideCSS(opts: Record<string, boolean>): string {
 }
 
 export default function EpisodeDetail({ episode, token, cache, onNavigate, onBack, backLabel }: Props) {
+  const { project } = useProject()
+  const EPISODES = getTabNames(project)
+  const IS_FILM = project.type === 'film'
   const [saving, setSaving] = useState(false)
   const [showBatchImport, setShowBatchImport] = useState(false)
   const [showExportMD, setShowExportMD] = useState(false)
@@ -62,8 +61,8 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   }
 
   function syncSummary(rows: SceneRow[]) {
-    if (!hasSummaryTab()) return
-    getDataService(token).updateSummaryRow(CURRENT_PROJECT, episode, computeEpisodeStats(rows)).catch(() => {})
+    if (!hasSummaryTab(project)) return
+    getDataService(token).updateSummaryRow(project, episode, computeEpisodeStats(rows)).catch(() => {})
   }
 
   async function handleUpdateScene(i: number, draft: SceneRow) {
@@ -71,12 +70,12 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     try {
       const svc = getDataService(token)
       const cleaned = normalizeScene(draft)
-      await svc.updateScene(CURRENT_PROJECT, episode, i, cleaned)
+      await svc.updateScene(project, episode, i, cleaned)
       const replaced = scenes.map((r, idx) => idx === i ? cleaned : r)
       const sorted = sortScenes(replaced)
       if (scenesOrderChanged(replaced, sorted)) {
         const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
-        await svc.batchUpdateScenes(CURRENT_PROJECT, episode, updates).catch(() => {})
+        await svc.batchUpdateScenes(project, episode, updates).catch(() => {})
       }
       cache.setEpisodeScenes(episode, () => sorted)
       syncSummary(sorted)
@@ -93,12 +92,12 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     try {
       const svc = getDataService(token)
       const cleaned = normalizeScene(scene)
-      await svc.appendScene(CURRENT_PROJECT, episode, cleaned)
+      await svc.appendScene(project, episode, cleaned)
       const appended = [...scenes, cleaned]
       const sorted = sortScenes(appended)
       if (scenesOrderChanged(appended, sorted)) {
         const updates = sorted.map((sc, rowIndex) => ({ rowIndex, scene: sc }))
-        await svc.batchUpdateScenes(CURRENT_PROJECT, episode, updates).catch(() => {})
+        await svc.batchUpdateScenes(project, episode, updates).catch(() => {})
       }
       cache.setEpisodeScenes(episode, () => sorted)
       syncSummary(sorted)
@@ -113,7 +112,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   async function handleDeleteScene(i: number) {
     setSaving(true)
     try {
-      await getDataService(token).deleteScene(CURRENT_PROJECT, episode, i)
+      await getDataService(token).deleteScene(project, episode, i)
       const updated = scenes.filter((_, idx) => idx !== i)
       cache.setEpisodeScenes(episode, () => updated)
       syncSummary(updated)
@@ -132,7 +131,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
         rowIndex: idx,
         scene: { ...scenes[idx], status: newStatus },
       }))
-      await getDataService(token).batchUpdateScenes(CURRENT_PROJECT, episode, updates)
+      await getDataService(token).batchUpdateScenes(project, episode, updates)
       const targetSet = new Set(rowIndices)
       const updated = scenes.map((r, i) =>
         targetSet.has(i) ? { ...r, status: newStatus } : r,
@@ -150,7 +149,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   async function handleBatchDeleteScenes(rowIndices: number[]) {
     setSaving(true)
     try {
-      await getDataService(token).batchDeleteScenes(CURRENT_PROJECT, episode, rowIndices)
+      await getDataService(token).batchDeleteScenes(project, episode, rowIndices)
       const targetSet = new Set(rowIndices)
       const updated = scenes.filter((_, i) => !targetSet.has(i))
       cache.setEpisodeScenes(episode, () => updated)
@@ -166,13 +165,13 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   async function handleBatchImportScenes(newScenes: SceneRow[]) {
     const svc = getDataService(token)
     for (const sc of newScenes) {
-      await svc.appendScene(CURRENT_PROJECT, episode, sc)
+      await svc.appendScene(project, episode, sc)
     }
     const appended = [...scenes, ...newScenes]
     const sorted = sortScenes(appended)
     if (scenesOrderChanged(appended, sorted)) {
       const updates = sorted.map((sc, rowIndex) => ({ rowIndex, scene: sc }))
-      await svc.batchUpdateScenes(CURRENT_PROJECT, episode, updates).catch(() => {})
+      await svc.batchUpdateScenes(project, episode, updates).catch(() => {})
     }
     cache.setEpisodeScenes(episode, () => sorted)
     syncSummary(sorted)
@@ -194,7 +193,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
         <button style={s.backBtn} onClick={onBack}>{backLabel ?? '← 返回總覽'}</button>
         <div style={s.navTitleBox}>
           <span style={s.navTitle}>Roughcut Tracker</span>
-          <span style={s.navSub}>{projectTitle()}</span>
+          <span style={s.navSub}>{projectTitle(project)}</span>
         </div>
       </nav>
       {!IS_FILM && (
@@ -216,7 +215,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
       )}
 
       {IS_FILM && !loading && !error && (
-        <SummaryBar title={projectTitle()} stats={stats} />
+        <SummaryBar title={projectTitle(project)} stats={stats} />
       )}
 
       <main style={s.main}>
@@ -232,7 +231,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
                 <span className="print-meta">列印日期：{printDate}</span>
               </div>
               <h1 className="print-title">
-                {projectTitle()}剪輯進度報告{IS_FILM ? '' : `（${episode}）`}
+                {projectTitle(project)}剪輯進度報告{IS_FILM ? '' : `（${episode}）`}
               </h1>
             </div>
 

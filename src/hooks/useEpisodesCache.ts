@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getDataService } from '../services'
 import { normalizeScene, computeEpisodeStats } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
-import { CURRENT_PROJECT, getTabNames, hasSummaryTab } from '../config/projectConfig'
+import { getTabNames, hasSummaryTab } from '../config/projectConfig'
+import { useProject } from '../contexts/ProjectContext'
 import type { SceneRow } from '../types'
-
-const EPISODES = getTabNames()
 
 export type EpisodesMap = Record<string, SceneRow[]>
 
@@ -18,10 +17,12 @@ export interface EpisodesCache {
 }
 
 export function useEpisodesCache(token: string | null): EpisodesCache {
+  const { project } = useProject()
+  const episodes = useMemo(() => getTabNames(project), [project])
   const [scenes, setScenes] = useState<EpisodesMap | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const loadedTokenRef = useRef<string | null>(null)
+  const loadedKeyRef = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -29,10 +30,10 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
     setError('')
     try {
       const svc = getDataService(token)
-      const batch = await svc.fetchEpisodesBatch(CURRENT_PROJECT, EPISODES)
+      const batch = await svc.fetchEpisodesBatch(project, episodes)
       const normalized: EpisodesMap = {}
       const rewriteTargets: { ep: string; sorted: SceneRow[] }[] = []
-      for (const ep of EPISODES) {
+      for (const ep of episodes) {
         const raw = batch[ep] ?? []
         const n = raw.map(normalizeScene)
         const sorted = sortScenes(n)
@@ -46,32 +47,33 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
         }
       }
       setScenes(normalized)
-      loadedTokenRef.current = token
+      loadedKeyRef.current = `${token}|${project.id}`
 
       for (const { ep, sorted } of rewriteTargets) {
         const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
-        svc.batchUpdateScenes(CURRENT_PROJECT, ep, updates).catch(() => {})
+        svc.batchUpdateScenes(project, ep, updates).catch(() => {})
       }
-      if (hasSummaryTab()) {
-        const items = EPISODES.map(ep => ({ ep, stats: computeEpisodeStats(normalized[ep]) }))
-        svc.batchUpdateSummary(CURRENT_PROJECT, items).catch(() => {})
+      if (hasSummaryTab(project)) {
+        const items = episodes.map(ep => ({ ep, stats: computeEpisodeStats(normalized[ep]) }))
+        svc.batchUpdateSummary(project, items).catch(() => {})
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, project, episodes])
 
   useEffect(() => {
     if (!token) {
       setScenes(null)
-      loadedTokenRef.current = null
+      loadedKeyRef.current = null
       return
     }
-    if (loadedTokenRef.current === token) return
+    const key = `${token}|${project.id}`
+    if (loadedKeyRef.current === key) return
     load()
-  }, [token, load])
+  }, [token, project, load])
 
   const setEpisodeScenes = useCallback(
     (ep: string, updater: (prev: SceneRow[]) => SceneRow[]): SceneRow[] => {
