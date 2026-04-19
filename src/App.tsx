@@ -5,6 +5,7 @@ import { useEpisodesCache } from './hooks/useEpisodesCache'
 import LoginScreen from './components/LoginScreen'
 import Dashboard from './components/Dashboard'
 import EpisodeDetail from './components/EpisodeDetail'
+import AdminDashboard from './components/AdminDashboard'
 import { getTabNames } from './config/projectConfig'
 import { useProject } from './contexts/ProjectContext'
 import { getDataService } from './services'
@@ -12,6 +13,9 @@ import './App.css'
 
 const PENDING_PWD_KEY = 'pending_pwd'
 const MATCHED_PROJECT_KEY = 'matched_project_id'
+const ADMIN_MODE_KEY = 'admin_mode'
+const ADMIN_VERIFIED_KEY = 'admin_verified'
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? ''
 
 type View = { page: 'dashboard' } | { page: 'episode'; ep: string }
 
@@ -19,6 +23,12 @@ export default function App() {
   const { project, setProject } = useProject()
   const { isAuthenticated, accessToken, login, logout } = useAuth()
 
+  const [adminMode, setAdminMode] = useState<boolean>(
+    () => sessionStorage.getItem(ADMIN_MODE_KEY) === '1' || window.location.hash === '#admin',
+  )
+  const [adminVerified, setAdminVerified] = useState<boolean>(
+    () => sessionStorage.getItem(ADMIN_VERIFIED_KEY) === '1',
+  )
   const [matchedId, setMatchedId] = useState<string | null>(
     () => sessionStorage.getItem(MATCHED_PROJECT_KEY),
   )
@@ -36,6 +46,15 @@ export default function App() {
     () => (isFilm ? { page: 'episode', ep: filmTab } : { page: 'dashboard' }),
   )
 
+  // 從 URL hash 進入 admin mode
+  useEffect(() => {
+    if (window.location.hash === '#admin') {
+      sessionStorage.setItem(ADMIN_MODE_KEY, '1')
+      setAdminMode(true)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
   // 專案切換時重置 view
   useEffect(() => {
     if (!authed) return
@@ -47,6 +66,7 @@ export default function App() {
   // OAuth 完成後：驗證 pending 密碼 或 還原已登入 project
   useEffect(() => {
     if (!accessToken || verifiedRef.current || verifying) return
+    if (adminMode) return // admin 流程不需要比對專案密碼
 
     const pendingPwd = sessionStorage.getItem(PENDING_PWD_KEY)
     const savedId = sessionStorage.getItem(MATCHED_PROJECT_KEY)
@@ -58,7 +78,7 @@ export default function App() {
     } else if (savedId && project.id === savedId) {
       verifiedRef.current = true
     }
-  }, [accessToken])
+  }, [accessToken, adminMode])
 
   async function verifyPassword(pwd: string, token: string) {
     setVerifying(true)
@@ -115,6 +135,30 @@ export default function App() {
     login()
   }
 
+  function handleAdminPasswordSubmit(pwd: string) {
+    if (!ADMIN_PASSWORD) {
+      setLoginError('VITE_ADMIN_PASSWORD 未設定')
+      return
+    }
+    if (pwd !== ADMIN_PASSWORD) {
+      setLoginError('管理者密碼錯誤')
+      return
+    }
+    setLoginError('')
+    sessionStorage.setItem(ADMIN_VERIFIED_KEY, '1')
+    setAdminVerified(true)
+    if (!accessToken) login()
+  }
+
+  function handleAdminLogout() {
+    sessionStorage.removeItem(ADMIN_MODE_KEY)
+    sessionStorage.removeItem(ADMIN_VERIFIED_KEY)
+    setAdminMode(false)
+    setAdminVerified(false)
+    setLoginError('')
+    logout()
+  }
+
   function handleLogout() {
     sessionStorage.removeItem(MATCHED_PROJECT_KEY)
     sessionStorage.removeItem(PENDING_PWD_KEY)
@@ -122,6 +166,24 @@ export default function App() {
     verifiedRef.current = false
     setLoginError('')
     logout()
+  }
+
+  if (adminMode) {
+    if (adminVerified && accessToken) {
+      return <AdminDashboard token={accessToken} onLogout={handleAdminLogout} />
+    }
+    const waiting = adminVerified && !isAuthenticated
+    return (
+      <LoginScreen
+        title="管理者登入"
+        sublabel="Roughcut Tracker · Admin"
+        hint="忘記密碼？請翻開 GitHub Secrets"
+        onSubmit={handleAdminPasswordSubmit}
+        waiting={waiting}
+        waitingLabel="正在連結 Google 帳號⋯"
+        error={loginError}
+      />
+    )
   }
 
   if (!authed) {

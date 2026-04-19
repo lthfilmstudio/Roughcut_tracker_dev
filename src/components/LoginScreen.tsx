@@ -5,9 +5,17 @@ interface Props {
   waiting?: boolean
   waitingLabel?: string
   error?: string
+  title?: string
+  sublabel?: string
+  hint?: string
 }
 
-export default function LoginScreen({ onSubmit, waiting, waitingLabel, error }: Props) {
+export default function LoginScreen({
+  onSubmit, waiting, waitingLabel, error,
+  title = '輸入專案密碼',
+  sublabel = 'Roughcut Tracker',
+  hint = '忘記密碼？請聯絡剪輯指導',
+}: Props) {
   const [pwd, setPwd] = useState('')
   const [localError, setLocalError] = useState('')
 
@@ -37,8 +45,8 @@ export default function LoginScreen({ onSubmit, waiting, waitingLabel, error }: 
   return (
     <div style={s.wrapper}>
       <div style={s.card}>
-        <p style={s.label}>Roughcut Tracker</p>
-        <h1 style={s.title}>輸入專案密碼</h1>
+        <p style={s.label}>{sublabel}</p>
+        <h1 style={s.title}>{title}</h1>
         <form onSubmit={handleSubmit} style={s.form}>
           <input
             type="password"
@@ -53,7 +61,7 @@ export default function LoginScreen({ onSubmit, waiting, waitingLabel, error }: 
             進入
           </button>
         </form>
-        <p style={s.hint}>忘記密碼？請聯絡剪輯指導</p>
+        <p style={s.hint}>{hint}</p>
       </div>
     </div>
   )
