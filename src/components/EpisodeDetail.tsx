@@ -14,7 +14,10 @@ import ExportMD from './ExportMD'
 import ExportCSV from './ExportCSV'
 import ErrorView from './ErrorView'
 import ExportPDFModal from './ExportPDFModal'
-import { SHOW_NAME, STUDIO_NAME } from '../config/sheets'
+import { STUDIO_NAME } from '../config/sheets'
+import {
+  CURRENT_PROJECT, getTabNames, projectTitle, hasSummaryTab,
+} from '../config/projectConfig'
 
 interface Props {
   episode: string
@@ -22,9 +25,11 @@ interface Props {
   cache: EpisodesCache
   onNavigate: (ep: string) => void
   onBack: () => void
+  backLabel?: string
 }
 
-const EPISODES = Array.from({ length: 12 }, (_, i) => `ep${String(i + 1).padStart(2, '0')}`)
+const EPISODES = getTabNames()
+const IS_FILM = CURRENT_PROJECT.type === 'film'
 
 const FORM_STATUS_LIST = ['已精剪', '已初剪', '整場刪除'] as const
 type Status = '已精剪' | '已初剪' | '尚缺鏡頭' | '整場刪除' | ''
@@ -85,7 +90,7 @@ function buildEpHideCSS(opts: Record<string, boolean>): string {
   return parts.length > 0 ? `@media print { ${parts.join(' ')} }` : ''
 }
 
-export default function EpisodeDetail({ episode, token, cache, onNavigate, onBack }: Props) {
+export default function EpisodeDetail({ episode, token, cache, onNavigate, onBack, backLabel }: Props) {
   const [editRow, setEditRow] = useState<number | null>(null)
   const [draft, setDraft] = useState<SceneRow | null>(null)
   const [saving, setSaving] = useState(false)
@@ -152,6 +157,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   }
 
   function syncSummary(rows: SceneRow[]) {
+    if (!hasSummaryTab()) return
     updateSummaryRow(episode, computeEpisodeStats(rows), token).catch(() => {})
   }
 
@@ -367,27 +373,29 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     <div style={s.page}>
       {/* Nav */}
       <nav style={s.nav} className="no-print">
-        <button style={s.backBtn} onClick={onBack}>← 返回總覽</button>
+        <button style={s.backBtn} onClick={onBack}>{backLabel ?? '← 返回總覽'}</button>
         <div style={s.navTitleBox}>
           <span style={s.navTitle}>Roughcut Tracker</span>
-          <span style={s.navSub}>劇集《{SHOW_NAME}》</span>
+          <span style={s.navSub}>{projectTitle()}</span>
         </div>
       </nav>
-      <div style={s.tabBar} className="no-print">
-        <button style={s.scrollBtn} onClick={() => scrollTabs('left')}>‹</button>
-        <div ref={tabScrollRef} style={s.tabs}>
-          {EPISODES.map(ep => (
-            <button
-              key={ep}
-              style={{ ...s.tab, ...(ep === episode ? s.tabActive : {}) }}
-              onClick={() => onNavigate(ep)}
-            >
-              {ep}
-            </button>
-          ))}
+      {!IS_FILM && (
+        <div style={s.tabBar} className="no-print">
+          <button style={s.scrollBtn} onClick={() => scrollTabs('left')}>‹</button>
+          <div ref={tabScrollRef} style={s.tabs}>
+            {EPISODES.map(ep => (
+              <button
+                key={ep}
+                style={{ ...s.tab, ...(ep === episode ? s.tabActive : {}) }}
+                onClick={() => onNavigate(ep)}
+              >
+                {ep}
+              </button>
+            ))}
+          </div>
+          <button style={s.scrollBtn} onClick={() => scrollTabs('right')}>›</button>
         </div>
-        <button style={s.scrollBtn} onClick={() => scrollTabs('right')}>›</button>
-      </div>
+      )}
 
       <main style={s.main}>
         {loading && <p style={s.msg}>載入中⋯</p>}
@@ -401,7 +409,9 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
                 <span className="print-studio">{STUDIO_NAME}</span>
                 <span className="print-meta">列印日期：{printDate}</span>
               </div>
-              <h1 className="print-title">劇集《{SHOW_NAME}》剪輯進度報告（{episode}）</h1>
+              <h1 className="print-title">
+                {projectTitle()}剪輯進度報告{IS_FILM ? '' : `（${episode}）`}
+              </h1>
             </div>
 
             {/* 列印用簡潔統計表 */}

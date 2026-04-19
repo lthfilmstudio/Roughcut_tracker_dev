@@ -4,9 +4,10 @@ import {
 } from '../services/sheetsService'
 import { normalizeScene, computeEpisodeStats } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
+import { getTabNames, hasSummaryTab } from '../config/projectConfig'
 import type { SceneRow } from '../types'
 
-const EPISODES = Array.from({ length: 12 }, (_, i) => `ep${String(i + 1).padStart(2, '0')}`)
+const EPISODES = getTabNames()
 
 export type EpisodesMap = Record<string, SceneRow[]>
 
@@ -52,8 +53,10 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
         const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
         batchUpdateScenes(ep, updates, token).catch(() => {})
       }
-      const items = EPISODES.map(ep => ({ ep, stats: computeEpisodeStats(normalized[ep]) }))
-      batchUpdateSummary(items, token).catch(() => {})
+      if (hasSummaryTab()) {
+        const items = EPISODES.map(ep => ({ ep, stats: computeEpisodeStats(normalized[ep]) }))
+        batchUpdateSummary(items, token).catch(() => {})
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
