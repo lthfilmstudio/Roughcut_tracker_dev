@@ -6,6 +6,7 @@ import type { ProjectConfig, ProjectType } from '../config/projectConfig'
 interface Props {
   token: string
   onLogout: () => void
+  onEnterProject: (project: ProjectConfig) => void
 }
 
 interface FormData {
@@ -35,7 +36,7 @@ function toForm(p: ProjectConfig): FormData {
   }
 }
 
-export default function AdminDashboard({ token, onLogout }: Props) {
+export default function AdminDashboard({ token, onLogout, onEnterProject }: Props) {
   const svc = useMemo(() => getDataService(token), [token])
   const [projects, setProjects] = useState<ProjectConfig[]>([])
   const [loading, setLoading] = useState(false)
@@ -206,6 +207,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
                   project={p}
                   onEdit={() => { setEditingId(p.id); setError('') }}
                   onDelete={() => handleDelete(p)}
+                  onEnter={() => onEnterProject(p)}
                   disabled={saving}
                 />
               )}
@@ -218,8 +220,14 @@ export default function AdminDashboard({ token, onLogout }: Props) {
 }
 
 function ProjectRow({
-  project, onEdit, onDelete, disabled,
-}: { project: ProjectConfig; onEdit: () => void; onDelete: () => void; disabled?: boolean }) {
+  project, onEdit, onDelete, onEnter, disabled,
+}: {
+  project: ProjectConfig
+  onEdit: () => void
+  onDelete: () => void
+  onEnter: () => void
+  disabled?: boolean
+}) {
   const sheetTail = project.sheetId.slice(-6)
   return (
     <div style={s.row}>
@@ -238,6 +246,7 @@ function ProjectRow({
         </div>
       </div>
       <div style={s.rowActions}>
+        <button style={s.primaryBtn} disabled={disabled} onClick={onEnter}>進入專案 →</button>
         <button style={s.secondaryBtn} disabled={disabled} onClick={onEdit}>編輯</button>
         <button style={s.dangerBtn} disabled={disabled} onClick={onDelete}>刪除</button>
       </div>

@@ -15,6 +15,7 @@ interface Props {
   cache: EpisodesCache
   onSelectEpisode: (ep: string) => void
   onLogout: () => void
+  logoutLabel?: string
 }
 
 interface EpisodeView {
@@ -56,7 +57,7 @@ function buildHideCSS(opts: Record<string, boolean>): string {
   return parts.length > 0 ? `@media print { ${parts.join(' ')} }` : ''
 }
 
-export default function Dashboard({ cache, onSelectEpisode, onLogout }: Props) {
+export default function Dashboard({ cache, onSelectEpisode, onLogout, logoutLabel = '登出' }: Props) {
   const { project } = useProject()
   const [hoveredEp, setHoveredEp] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
@@ -105,7 +106,7 @@ export default function Dashboard({ cache, onSelectEpisode, onLogout }: Props) {
           <span style={s.navTitle}>Roughcut Tracker</span>
           <span style={s.navSub}>{projectTitle(project)}</span>
         </div>
-        <button style={s.logoutBtn} onClick={onLogout}>登出</button>
+        <button style={s.logoutBtn} onClick={onLogout}>{logoutLabel}</button>
       </nav>
 
       <main style={s.main}>
