@@ -13,6 +13,9 @@ export class GoogleSheetsService implements DataService {
   private metaSheetId: string
 
   constructor(token: string, metaSheetId: string) {
+    if (!metaSheetId) {
+      throw new Error('VITE_META_SHEET_ID 未設定，請檢查部署環境變數')
+    }
     this.token = token
     this.metaSheetId = metaSheetId
   }
@@ -26,7 +29,10 @@ export class GoogleSheetsService implements DataService {
       `${this.base(sheetId)}/values/${encodeURIComponent(range)}`,
       { headers: { Authorization: `Bearer ${this.token}` } },
     )
-    if (!res.ok) throw new Error(`Sheets API ${res.status}`)
+    if (!res.ok) {
+      const tail = sheetId ? sheetId.slice(-6) : '(空值)'
+      throw new Error(`Sheets API ${res.status} [sheetId=…${tail}, range=${range}]`)
+    }
     return res.json()
   }
 
