@@ -15,7 +15,7 @@ const PENDING_PWD_KEY = 'pending_pwd'
 const MATCHED_PROJECT_KEY = 'matched_project_id'
 const ADMIN_MODE_KEY = 'admin_mode'
 const ADMIN_VERIFIED_KEY = 'admin_verified'
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? ''
+const ADMIN_PASSWORD_HASH = import.meta.env.VITE_ADMIN_PASSWORD ?? ''
 
 type View = { page: 'dashboard' } | { page: 'episode'; ep: string }
 
@@ -136,11 +136,18 @@ export default function App() {
   }
 
   function handleAdminPasswordSubmit(pwd: string) {
-    if (!ADMIN_PASSWORD) {
+    if (!ADMIN_PASSWORD_HASH) {
       setLoginError('VITE_ADMIN_PASSWORD 未設定')
       return
     }
-    if (pwd !== ADMIN_PASSWORD) {
+    let matched = false
+    try {
+      matched = bcrypt.compareSync(pwd, ADMIN_PASSWORD_HASH)
+    } catch {
+      setLoginError('管理者密碼 hash 格式錯誤')
+      return
+    }
+    if (!matched) {
       setLoginError('管理者密碼錯誤')
       return
     }
