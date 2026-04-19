@@ -73,11 +73,6 @@ export default function SummaryBar({ stats }: Props) {
 
 const s: Record<string, React.CSSProperties> = {
   sticky: {
-    position: 'sticky', top: 0, zIndex: 10,
-    background: 'rgba(20, 20, 20, 0.92)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
-    borderBottom: '1px solid var(--border)',
     padding: '14px 40px',
     maxWidth: 1400, margin: '0 auto',
   },
