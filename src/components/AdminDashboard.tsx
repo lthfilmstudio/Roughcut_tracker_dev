@@ -246,7 +246,7 @@ function ProjectRow({
         </div>
       </div>
       <div style={s.rowActions}>
-        <button style={s.primaryBtn} disabled={disabled} onClick={onEnter}>進入專案 →</button>
+        <button style={s.enterBtn} disabled={disabled} onClick={onEnter}>進入專案 →</button>
         <button style={s.secondaryBtn} disabled={disabled} onClick={onEdit}>編輯</button>
         <button style={s.dangerBtn} disabled={disabled} onClick={onDelete}>刪除</button>
       </div>
@@ -424,5 +424,10 @@ const s: Record<string, React.CSSProperties> = {
   dangerBtn: {
     padding: '8px 16px', background: 'transparent', color: 'var(--color-missing)',
     border: '1px solid var(--color-missing)', borderRadius: 8, cursor: 'pointer', fontSize: 13,
+  },
+  enterBtn: {
+    padding: '8px 16px', background: 'rgba(96, 165, 250, 0.12)', color: '#93C5FD',
+    border: '1px solid rgba(147, 197, 253, 0.4)', borderRadius: 8,
+    cursor: 'pointer', fontSize: 13, fontWeight: 600,
   },
 }
