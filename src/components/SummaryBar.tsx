@@ -2,109 +2,88 @@ import { secsToHMS } from '../lib/stats'
 import type { EpisodeStats } from '../lib/stats'
 
 interface Props {
-  title: string
   stats: EpisodeStats
 }
 
-export default function SummaryBar({ title, stats }: Props) {
+export default function SummaryBar({ stats }: Props) {
   const totalSecs = stats.roughcutSecs + stats.finecutSecs
-  const combinedPct = stats.validScenes > 0
-    ? (stats.roughcutScenes + stats.finecutScenes) / stats.validScenes
-    : 0
+  const combinedCount = stats.roughcutScenes + stats.finecutScenes
+  const combinedPct = stats.validScenes > 0 ? combinedCount / stats.validScenes : 0
+
+  const cards = [
+    {
+      label: '初剪進度',
+      secs: stats.roughcutSecs,
+      pct: stats.roughcutPct,
+      color: '#FFC107',
+      sub: `${stats.roughcutScenes} / ${stats.validScenes} 場`,
+    },
+    {
+      label: '精剪進度',
+      secs: stats.finecutSecs,
+      pct: stats.finecutPct,
+      color: '#4CAF50',
+      sub: `${stats.finecutScenes} / ${stats.validScenes} 場`,
+    },
+    {
+      label: '整體統計',
+      secs: totalSecs,
+      pct: combinedPct,
+      color: '#E5E5E5',
+      sub: `${combinedCount} / ${stats.validScenes} 場　・　${stats.totalPages.toFixed(1)} 頁`,
+    },
+  ]
 
   return (
-    <div style={s.bar} className="no-print">
-      <div style={s.title}>{title}</div>
-      <div style={s.metrics}>
-        <Metric label="初剪" pct={stats.roughcutPct} color="#FFC107"
-          count={stats.roughcutScenes} total={stats.validScenes} />
-        <Metric label="精剪" pct={stats.finecutPct} color="#4CAF50"
-          count={stats.finecutScenes} total={stats.validScenes} />
-        <Metric label="總計" pct={combinedPct} color="#E5E5E5"
-          count={stats.roughcutScenes + stats.finecutScenes} total={stats.validScenes} />
-        <div style={s.divider} />
-        <div style={s.pill}>
-          <span style={s.pillLabel}>總時長</span>
-          <span style={s.pillValue}>{secsToHMS(totalSecs)}</span>
-        </div>
-        <div style={s.pill}>
-          <span style={s.pillLabel}>總頁數</span>
-          <span style={s.pillValue}>{stats.totalPages.toFixed(1)}</span>
-        </div>
+    <div style={s.sticky} className="no-print">
+      <div style={s.grid}>
+        {cards.map(c => (
+          <div key={c.label} style={s.card}>
+            <p style={s.label}>{c.label}</p>
+            <div style={s.row}>
+              <p style={s.value}>{secsToHMS(c.secs)}</p>
+              <div style={s.right}>
+                <p style={s.pct}>{Math.round(c.pct * 100)}%</p>
+                <div style={s.barRow}>
+                  <div style={s.barTrack}>
+                    <div style={{ ...s.barFill, width: `${Math.min(c.pct * 100, 100)}%`, background: c.color }} />
+                  </div>
+                  <span style={s.sub}>{c.sub}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
-  )
-}
-
-interface MetricProps {
-  label: string
-  pct: number
-  color: string
-  count: number
-  total: number
-}
-
-function Metric({ label, pct, color, count, total }: MetricProps) {
-  return (
-    <div style={s.metric}>
-      <span style={s.metricLabel}>{label}</span>
-      <div style={s.barTrack}>
-        <div style={{ ...s.barFill, width: `${Math.min(pct * 100, 100)}%`, background: color }} />
-      </div>
-      <span style={s.metricPct}>{Math.round(pct * 100)}%</span>
-      <span style={s.metricCount}>{count}/{total}</span>
     </div>
   )
 }
 
 const s: Record<string, React.CSSProperties> = {
-  bar: {
+  sticky: {
     position: 'sticky', top: 0, zIndex: 10,
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    gap: 24, padding: '10px 40px',
     background: 'rgba(20, 20, 20, 0.92)',
     backdropFilter: 'blur(8px)',
     WebkitBackdropFilter: 'blur(8px)',
     borderBottom: '1px solid var(--border)',
+    padding: '14px 40px',
   },
-  title: {
-    fontSize: 13, fontWeight: 500, color: 'var(--text-primary)',
-    whiteSpace: 'nowrap', flexShrink: 0,
+  grid: {
+    display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12,
+    maxWidth: 1400, margin: '0 auto',
   },
-  metrics: {
-    display: 'flex', alignItems: 'center', gap: 16,
-    flex: 1, justifyContent: 'flex-end', flexWrap: 'wrap',
+  card: {
+    background: '#1C1C1C', border: '1px solid #2A2A2A',
+    borderRadius: 4, padding: '14px 18px',
+    display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
   },
-  metric: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    minWidth: 160,
-  },
-  metricLabel: {
-    fontSize: 11, color: 'var(--text-secondary)',
-    width: 28, flexShrink: 0,
-  },
-  metricPct: {
-    fontSize: 12, fontWeight: 600, color: 'var(--text-primary)',
-    minWidth: 34, textAlign: 'right', flexShrink: 0,
-  },
-  metricCount: {
-    fontSize: 11, color: 'var(--text-secondary)',
-    minWidth: 48, textAlign: 'right', flexShrink: 0,
-  },
-  barTrack: {
-    background: '#2A2A2A', borderRadius: 2, height: 4,
-    flex: 1, minWidth: 60, overflow: 'hidden',
-  },
+  label: { fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
+  value: { fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1, whiteSpace: 'nowrap' },
+  right: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flex: 1, gap: 6, minWidth: 0 },
+  pct: { fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 },
+  barRow: { display: 'flex', alignItems: 'center', gap: 8, width: '100%' },
+  barTrack: { background: '#2A2A2A', borderRadius: 2, height: 4, flex: 1, minWidth: 0, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 2, transition: 'width 0.3s ease' },
-  divider: {
-    width: 1, height: 20, background: '#2A2A2A', flexShrink: 0,
-  },
-  pill: {
-    display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
-  },
-  pillLabel: { fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1 },
-  pillValue: {
-    fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
-    lineHeight: 1, whiteSpace: 'nowrap',
-  },
+  sub: { fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap', lineHeight: 1 },
 }

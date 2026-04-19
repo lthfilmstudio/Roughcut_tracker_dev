@@ -215,7 +215,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
       )}
 
       {IS_FILM && !loading && !error && (
-        <SummaryBar title={projectTitle(project)} stats={stats} />
+        <SummaryBar stats={stats} />
       )}
 
       <main style={s.main}>
