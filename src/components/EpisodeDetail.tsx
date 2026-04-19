@@ -189,8 +189,12 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   return (
     <div style={s.page}>
       {/* Nav */}
-      <nav style={s.nav} className="no-print">
-        <button style={s.backBtn} onClick={onBack}>{backLabel ?? '← 返回總覽'}</button>
+      <nav style={{ ...s.nav, justifyContent: IS_FILM ? 'flex-end' : 'flex-start' }} className="no-print">
+        {IS_FILM ? (
+          <button style={s.logoutBtn} onClick={onBack}>{backLabel ?? '登出'}</button>
+        ) : (
+          <button style={s.backBtn} onClick={onBack}>{backLabel ?? '← 返回總覽'}</button>
+        )}
         <div style={s.navTitleBox}>
           <span style={s.navTitle}>Roughcut Tracker</span>
           <span style={s.navSub}>{projectTitle(project)}</span>
@@ -399,6 +403,10 @@ const s: Record<string, React.CSSProperties> = {
     padding: '5px 12px', background: 'transparent', color: '#555',
     border: '1px solid #333', borderRadius: 4, whiteSpace: 'nowrap', flexShrink: 0,
     fontSize: 12,
+  },
+  logoutBtn: {
+    padding: '7px 16px', background: 'transparent', color: 'var(--text-secondary)',
+    border: '1px solid var(--border)', borderRadius: 6, whiteSpace: 'nowrap', flexShrink: 0,
   },
   tabBar: {
     display: 'flex', alignItems: 'center', gap: 4,
