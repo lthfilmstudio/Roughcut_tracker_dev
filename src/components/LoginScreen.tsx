@@ -1,28 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Props {
-  onSubmit: (pwd: string) => boolean
+  onSubmit: (pwd: string) => void
   waiting?: boolean
+  waitingLabel?: string
+  error?: string
 }
 
-export default function LoginScreen({ onSubmit, waiting }: Props) {
+export default function LoginScreen({ onSubmit, waiting, waitingLabel, error }: Props) {
   const [pwd, setPwd] = useState('')
-  const [error, setError] = useState('')
+  const [localError, setLocalError] = useState('')
+
+  useEffect(() => {
+    if (error) {
+      setLocalError(error)
+      setPwd('')
+    }
+  }, [error])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const ok = onSubmit(pwd)
-    if (!ok) {
-      setError('密碼錯誤，請重試')
-      setPwd('')
-    }
+    setLocalError('')
+    onSubmit(pwd)
   }
 
   if (waiting) {
     return (
       <div style={s.wrapper}>
         <div style={s.card}>
-          <p style={s.hint}>正在連結 Google 帳號⋯</p>
+          <p style={s.hint}>{waitingLabel ?? '正在連結 Google 帳號⋯'}</p>
         </div>
       </div>
     )
@@ -37,12 +43,12 @@ export default function LoginScreen({ onSubmit, waiting }: Props) {
           <input
             type="password"
             value={pwd}
-            onChange={(e) => { setPwd(e.target.value); setError('') }}
+            onChange={(e) => { setPwd(e.target.value); setLocalError('') }}
             placeholder="請輸入密碼"
-            style={{ ...s.input, borderColor: error ? 'var(--color-missing)' : 'var(--border)' }}
+            style={{ ...s.input, borderColor: localError ? 'var(--color-missing)' : 'var(--border)' }}
             autoFocus
           />
-          {error && <p style={s.error}>{error}</p>}
+          {localError && <p style={s.error}>{localError}</p>}
           <button type="submit" style={s.btn} disabled={!pwd}>
             進入
           </button>
