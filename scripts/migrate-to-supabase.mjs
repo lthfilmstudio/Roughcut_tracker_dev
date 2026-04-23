@@ -163,8 +163,14 @@ async function migrateProject(p) {
   await upsertProject(p)
 
   const tabs = await fetchProjectTabs(p.sheetId)
-  // Tab 1 (index 0) = 總覽，略過；_meta 獨立處理
-  const episodeTabs = tabs.filter((t, i) => i > 0 && !t.title.startsWith('_'))
+  // 劇集：Tab 0 = 總覽，跳過；Tab 1+ = ep01~epN
+  // 電影：沒有總覽，第 1 個 tab 就是 Scenes
+  // 兩種都要排除 `_` 開頭（例如 _meta）
+  const episodeTabs = tabs.filter((t, i) => {
+    if (t.title.startsWith('_')) return false
+    if (p.type === 'series' && i === 0) return false
+    return true
+  })
   const metaFlat = await fetchProjectMeta(p.sheetId)
 
   console.log(`   episode tabs: ${episodeTabs.map(t => t.title).join(', ')}`)
