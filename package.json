@@ -13,7 +13,9 @@
   },
   "homepage": "https://lthfilmstudio.github.io/Roughcut_tracker_dev",
   "dependencies": {
+    "@supabase/supabase-js": "^2.104.0",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "gh-pages": "^6.3.0",
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",

@@ -11,10 +11,16 @@ node_modules
 dist
 dist-ssr
 *.local
+*.local.json
 
 # env
 .env
 .env.local
+
+# secrets (service account keys, credentials)
+scripts/*sa-key*
+scripts/*.json.local
+supabase/credentials*
 
 # Editor directories and files
 .vscode/*
