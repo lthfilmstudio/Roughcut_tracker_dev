@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { getDataService } from '../services'
 import type { SceneRow } from '../types'
 import {
-  secsToHMS, normalizeScene, computeEpisodeStats,
+  secsToHMS, normalizeScene, autoFillRoughcutStatus, computeEpisodeStats,
+  finecutMetaKey,
 } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
 import type { EpisodesCache } from '../hooks/useEpisodesCache'
@@ -12,7 +13,7 @@ import ExportCSV from './ExportCSV'
 import ErrorView from './ErrorView'
 import ExportPDFModal from './ExportPDFModal'
 import SceneTable, { EP_COL_DEFS, EP_PDF_FIELDS, EP_PDF_DEFAULTS } from './SceneTable'
-import SummaryBar from './SummaryBar'
+import FinecutTotalInline from './FinecutTotalInline'
 import { STUDIO_NAME } from '../config/sheets'
 import { getTabNames, projectTitle, hasSummaryTab } from '../config/projectConfig'
 import { useProject } from '../contexts/ProjectContext'
@@ -22,6 +23,7 @@ interface Props {
   token: string
   cache: EpisodesCache
   onNavigate: (ep: string) => void
+  onOpenQuick: () => void
   onBack: () => void
   backLabel?: string
 }
@@ -38,7 +40,7 @@ function buildEpHideCSS(opts: Record<string, boolean>): string {
   return parts.length > 0 ? `@media print { ${parts.join(' ')} }` : ''
 }
 
-export default function EpisodeDetail({ episode, token, cache, onNavigate, onBack, backLabel }: Props) {
+export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpenQuick, onBack, backLabel }: Props) {
   const { project } = useProject()
   const EPISODES = getTabNames(project)
   const IS_FILM = project.type === 'film'
@@ -69,7 +71,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     setSaving(true)
     try {
       const svc = getDataService(token)
-      const cleaned = normalizeScene(draft)
+      const cleaned = normalizeScene(autoFillRoughcutStatus(draft, scenes[i]))
       await svc.updateScene(project, episode, i, cleaned)
       const replaced = scenes.map((r, idx) => idx === i ? cleaned : r)
       const sorted = sortScenes(replaced)
@@ -91,7 +93,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
     setSaving(true)
     try {
       const svc = getDataService(token)
-      const cleaned = normalizeScene(scene)
+      const cleaned = normalizeScene(autoFillRoughcutStatus(scene))
       await svc.appendScene(project, episode, cleaned)
       const appended = [...scenes, cleaned]
       const sorted = sortScenes(appended)
@@ -178,30 +180,53 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
   }
 
   const stats = computeEpisodeStats(scenes)
-  const roughcutPct = Math.round(stats.roughcutPct * 100)
-  const finecutPct = Math.round(stats.finecutPct * 100)
   const printDate = new Date().toLocaleDateString('zh-TW', {
     timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
   })
-  const totalSecs = stats.roughcutSecs + stats.finecutSecs
   const combinedPct = stats.validScenes > 0 ? (stats.roughcutScenes + stats.finecutScenes) / stats.validScenes : 0
+
+  const finecutKey = finecutMetaKey(episode)
+  const finecutTotalRaw = cache.meta[finecutKey] ?? ''
+
+  async function handleSaveFinecutTotal(next: string) {
+    await cache.setMetaValue(finecutKey, next)
+  }
 
   return (
     <div style={s.page}>
       {/* Nav */}
-      <nav style={{ ...s.nav, justifyContent: IS_FILM ? 'flex-end' : 'flex-start' }} className="no-print">
-        {IS_FILM ? (
-          <button style={s.logoutBtn} onClick={onBack}>{backLabel ?? '登出'}</button>
-        ) : (
-          <button style={s.backBtn} onClick={onBack}>{backLabel ?? '← 返回總覽'}</button>
-        )}
-        <div style={s.navTitleBox}>
-          <span style={s.navTitle}>Roughcut Tracker</span>
-          <span style={s.navSub}>{projectTitle(project)}</span>
+      <nav style={s.nav} className="no-print rt-nav">
+        <div style={s.navInner} className="rt-nav-inner">
+          <button style={s.logoutBtn} onClick={onBack}>{backLabel ?? (IS_FILM ? '登出' : '← 返回')}</button>
+          <div style={s.navTitleBox}>
+            <span style={s.navTitle} className="rt-nav-title">Roughcut Tracker</span>
+            <span style={s.navSub} className="rt-nav-sub">{projectTitle(project)}</span>
+          </div>
         </div>
       </nav>
+
+      {/* 快速輸入入口（置於所有內容最上方，電影/劇集模式皆適用） */}
+      {!loading && !error && (
+        <div style={s.quickBannerWrap} className="no-print rt-quick-banner-wrap">
+          <button
+            className="rt-quick-banner"
+            style={s.quickBanner}
+            onClick={onOpenQuick}
+          >
+            <span style={s.quickBannerLeft}>
+              <span style={s.quickBannerIcon}>⚡</span>
+              <span>
+                <span style={s.quickBannerTitle}>快速輸入</span>
+                <span style={s.quickBannerSub}>手機版快速更新入口</span>
+              </span>
+            </span>
+            <span style={s.quickBannerArrow}>→</span>
+          </button>
+        </div>
+      )}
+
       {!IS_FILM && (
-        <div style={s.tabBar} className="no-print">
+        <div style={s.tabBar} className="no-print rt-tabbar">
           <button style={s.scrollBtn} onClick={() => scrollTabs('left')}>‹</button>
           <div ref={tabScrollRef} style={s.tabs}>
             {EPISODES.map(ep => (
@@ -218,11 +243,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
         </div>
       )}
 
-      {IS_FILM && !loading && !error && (
-        <SummaryBar stats={stats} />
-      )}
-
-      <main style={s.main}>
+      <main style={s.main} className="rt-main">
         {loading && <p style={s.msg}>載入中⋯</p>}
         {error && <ErrorView error={error} />}
 
@@ -251,20 +272,20 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
               </thead>
               <tbody>
                 <tr>
-                  <td>已初剪</td>
-                  <td>{secsToHMS(stats.roughcutSecs)}</td>
-                  <td>{stats.roughcutScenes} / {stats.validScenes}</td>
-                  <td>{(stats.roughcutPct * 100).toFixed(1)}%</td>
+                  <td>初剪總長</td>
+                  <td>{stats.roughcutTotalSecs > 0 ? secsToHMS(stats.roughcutTotalSecs) : '—'}</td>
+                  <td>—</td>
+                  <td>—</td>
                 </tr>
                 <tr>
-                  <td>已精剪</td>
-                  <td>{secsToHMS(stats.finecutSecs)}</td>
-                  <td>{stats.finecutScenes} / {stats.validScenes}</td>
-                  <td>{(stats.finecutPct * 100).toFixed(1)}%</td>
+                  <td>精剪總長</td>
+                  <td>{finecutTotalRaw || '—'}</td>
+                  <td>—</td>
+                  <td>—</td>
                 </tr>
                 <tr>
                   <td>總計</td>
-                  <td>{secsToHMS(totalSecs)}</td>
+                  <td>—</td>
                   <td>{stats.roughcutScenes + stats.finecutScenes} / {stats.validScenes}</td>
                   <td>{(combinedPct * 100).toFixed(1)}%</td>
                 </tr>
@@ -275,50 +296,48 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
               </tbody>
             </table>
 
-            {/* 統計卡片（僅劇集模式） */}
-            {!IS_FILM && (
-              <div style={s.statGrid} className="stat-grid-screen">
-                {[
-                  { label: '已初剪', secs: stats.roughcutSecs, pct: stats.roughcutPct, count: stats.roughcutScenes, color: '#FFC107' },
-                  { label: '已精剪', secs: stats.finecutSecs, pct: stats.finecutPct, count: stats.finecutScenes, color: '#4CAF50' },
-                  {
-                    label: '總計',
-                    secs: stats.roughcutSecs + stats.finecutSecs,
-                    pct: combinedPct,
-                    count: stats.roughcutScenes + stats.finecutScenes,
-                    color: '#E5E5E5',
-                  },
-                ].map(c => (
-                  <div key={c.label} style={s.statCard}>
-                    <p style={s.statLabel}>{c.label}</p>
-                    <div style={s.statRow}>
-                      <p style={s.statValue}>{secsToHMS(c.secs)}</p>
-                      <div style={s.statRight}>
-                        <p style={s.statPct}>{Math.round(c.pct * 100)}%</p>
-                        <div style={s.statBarRow}>
-                          <div style={s.barTrack}>
-                            <div style={{ ...s.barFill, width: `${Math.min(c.pct * 100, 100)}%`, background: c.color }} />
-                          </div>
-                          <span style={s.statSubValue}>{c.count} / {stats.validScenes} 場</span>
-                        </div>
+            {/* 統計卡片（4 張一排，電影/劇集共用） */}
+            <div style={s.statGrid} className="stat-grid-screen">
+              <div style={s.statCard}>
+                <p style={s.statLabel}>初剪總長</p>
+                <p style={s.statValue}>
+                  {stats.roughcutTotalSecs > 0 ? secsToHMS(stats.roughcutTotalSecs) : '—'}
+                </p>
+              </div>
+              <div style={s.statCard}>
+                <FinecutTotalInline
+                  value={finecutTotalRaw}
+                  onSave={handleSaveFinecutTotal}
+                  label="精剪總長"
+                />
+              </div>
+              <div style={s.statCard}>
+                <p style={s.statLabel}>總計</p>
+                <div style={s.statRow}>
+                  <p style={s.statValue}>{Math.round(combinedPct * 100)}%</p>
+                  <div style={s.statRight}>
+                    <div style={s.statBarRow}>
+                      <div style={s.barTrack}>
+                        <div style={{ ...s.barFill, width: `${Math.min(combinedPct * 100, 100)}%`, background: '#E5E5E5' }} />
                       </div>
-                    </div>
-                  </div>
-                ))}
-                <div style={s.statCard}>
-                  <p style={s.statLabel}>總頁數</p>
-                  <div style={s.statRow}>
-                    <p style={s.statValue}>
-                      {stats.totalPages.toFixed(1)}
-                      <span style={s.statUnit}>頁</span>
-                    </p>
-                    <div style={{ ...s.statRight, justifyContent: 'flex-end' }}>
-                      <span style={s.statSubValue}>{stats.validScenes} 場（不含整場刪除）</span>
+                      <span style={s.statSubValue}>{stats.roughcutScenes + stats.finecutScenes} / {stats.validScenes} 場</span>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
+              <div style={s.statCard}>
+                <p style={s.statLabel}>總頁數</p>
+                <div style={s.statRow}>
+                  <p style={s.statValue}>
+                    {stats.totalPages.toFixed(1)}
+                    <span style={s.statUnit}>頁</span>
+                  </p>
+                  <div style={{ ...s.statRight, justifyContent: 'flex-end' }}>
+                    <span style={s.statSubValue}>{stats.validScenes} 場（不含整場刪除）</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <SceneTable
               resetKey={episode}
@@ -342,10 +361,14 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
 
       {showExportPDF && (
         <ExportPDFModal
-          fieldDefs={EP_PDF_FIELDS}
-          initialOpts={pdfOpts}
+          modes={[{
+            key: 'summary',
+            label: '場次明細',
+            fieldDefs: EP_PDF_FIELDS,
+            defaults: pdfOpts,
+          }]}
           onClose={() => setShowExportPDF(false)}
-          onConfirm={(opts) => {
+          onConfirm={(_modeKey, opts) => {
             setPdfOpts(opts)
             setShowExportPDF(false)
             window.setTimeout(() => window.print(), 80)
@@ -366,9 +389,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
         <ExportMD
           episode={episode}
           scenes={scenes}
-          roughcutPct={roughcutPct}
-          finecutPct={finecutPct}
-          totalDuration={secsToHMS(stats.roughcutSecs)}
+          stats={stats}
           onClose={() => setShowExportMD(false)}
         />
       )}
@@ -387,9 +408,13 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onBac
 const s: Record<string, React.CSSProperties> = {
   page: { minHeight: '100vh', background: 'var(--bg)' },
   nav: {
+    borderBottom: '1px solid var(--border)',
+  },
+  navInner: {
     position: 'relative',
-    display: 'flex', alignItems: 'center',
-    padding: '16px 32px', borderBottom: '1px solid var(--border)',
+    display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+    padding: '16px 40px',
+    maxWidth: 1400, margin: '0 auto', width: '100%', boxSizing: 'border-box',
   },
   navTitleBox: {
     position: 'absolute', left: '50%', top: '50%',
@@ -399,18 +424,14 @@ const s: Record<string, React.CSSProperties> = {
   },
   navTitle: { fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', lineHeight: '1.4' },
   navSub: { fontSize: 11, color: '#666666', lineHeight: '1.4' },
-  backBtn: {
-    padding: '5px 12px', background: 'transparent', color: '#555',
-    border: '1px solid #333', borderRadius: 4, whiteSpace: 'nowrap', flexShrink: 0,
-    fontSize: 12,
-  },
   logoutBtn: {
     padding: '7px 16px', background: 'transparent', color: 'var(--text-secondary)',
     border: '1px solid var(--border)', borderRadius: 6, whiteSpace: 'nowrap', flexShrink: 0,
   },
   tabBar: {
     display: 'flex', alignItems: 'center', gap: 4,
-    padding: '8px 24px', borderBottom: '1px solid var(--border)', overflow: 'hidden',
+    padding: '8px 40px', borderBottom: '1px solid var(--border)', overflow: 'hidden',
+    maxWidth: 1400, margin: '0 auto', width: '100%', boxSizing: 'border-box',
   },
   scrollBtn: {
     background: 'transparent', border: 'none', color: 'var(--text-secondary)',
@@ -429,6 +450,25 @@ const s: Record<string, React.CSSProperties> = {
     border: '1px solid var(--border)',
   },
   main: { padding: '20px 40px', maxWidth: 1400, margin: '0 auto' },
+  quickBannerWrap: { padding: '12px 40px 0', maxWidth: 1400, margin: '0 auto', width: '100%', boxSizing: 'border-box' },
+  quickBanner: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    width: '100%', padding: '14px 18px',
+    background: 'linear-gradient(135deg, #2A2414 0%, #1C1C1C 100%)',
+    border: '1px solid #3A3114', borderLeft: '3px solid #FFC107',
+    borderRadius: 6, color: 'var(--text-primary)', cursor: 'pointer',
+    textAlign: 'left',
+  },
+  quickBannerLeft: { display: 'flex', alignItems: 'center', gap: 14 },
+  quickBannerIcon: { fontSize: 22, lineHeight: 1 },
+  quickBannerTitle: {
+    display: 'block', fontSize: 15, fontWeight: 600,
+    color: '#FFC107', lineHeight: 1.3,
+  },
+  quickBannerSub: {
+    display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginTop: 2,
+  },
+  quickBannerArrow: { fontSize: 18, color: '#FFC107' },
   msg: { color: 'var(--text-secondary)', textAlign: 'center', marginTop: 60 },
   statGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16, alignItems: 'stretch' },
   statCard: {

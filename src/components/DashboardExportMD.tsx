@@ -117,18 +117,17 @@ export default function DashboardExportMD({
 
     if (summaryOpts.summary) {
       const totalSecs = totals.roughcutSecs + totals.finecutSecs
+      const combinedScenes = totals.roughcutScenes + totals.finecutScenes
+      const combinedPct = totals.validScenes > 0 ? combinedScenes / totals.validScenes : 0
       lines.push('## 全劇合計')
       lines.push('')
-      lines.push('| 項目 | 數值 |')
-      lines.push('|------|------|')
-      lines.push(`| 已初剪 | ${pctStr(globalRoughcutPct)}（${totals.roughcutScenes} / ${totals.validScenes} 場）|`)
-      lines.push(`| 已精剪 | ${pctStr(globalFinecutPct)}（${totals.finecutScenes} / ${totals.validScenes} 場）|`)
-      lines.push(`| 初剪時長 | ${secsToHMS(totals.roughcutSecs)} |`)
-      lines.push(`| 精剪時長 | ${secsToHMS(totals.finecutSecs)} |`)
-      lines.push(`| 總長度 | ${secsToHMS(totalSecs)} |`)
-      lines.push(`| 總場次 | ${totals.totalScenes} |`)
-      lines.push(`| 初剪頁數 | ${totals.roughcutPages.toFixed(1)} |`)
-      lines.push(`| 頁均時長 | ${globalAvgPageDur} |`)
+      lines.push('| 項目 | 時長 | 場次 | 百分比 |')
+      lines.push('|------|------|------|------|')
+      lines.push(`| 已初剪 | ${secsToHMS(totals.roughcutSecs)} | ${totals.roughcutScenes} / ${totals.validScenes} | ${pctStr(globalRoughcutPct)} |`)
+      lines.push(`| 已精剪 | ${secsToHMS(totals.finecutSecs)} | ${totals.finecutScenes} / ${totals.validScenes} | ${pctStr(globalFinecutPct)} |`)
+      lines.push(`| 總計 | ${secsToHMS(totalSecs)} | ${combinedScenes} / ${totals.validScenes} | ${pctStr(combinedPct)} |`)
+      lines.push('')
+      lines.push(`**初剪頁數：** ${totals.roughcutPages.toFixed(1)} 頁　・　頁均時長 ${globalAvgPageDur}`)
       lines.push('')
     }
 
@@ -139,9 +138,9 @@ export default function DashboardExportMD({
         { key: 'finePct', label: '已精剪%', render: ep => pctStr(ep.stats.finecutPct), total: pctStr(globalFinecutPct) },
         { key: 'roughSecs', label: '初剪時長', render: ep => ep.stats.roughcutSecs > 0 ? secsToHMS(ep.stats.roughcutSecs) : '—', total: secsToHMS(totals.roughcutSecs) },
         { key: 'fineSecs', label: '精剪時長', render: ep => ep.stats.finecutSecs > 0 ? secsToHMS(ep.stats.finecutSecs) : '—', total: secsToHMS(totals.finecutSecs) },
-        { key: 'roughScenes', label: '初剪場次', render: ep => String(ep.stats.roughcutScenes || '—'), total: String(totals.roughcutScenes || '—') },
-        { key: 'fineScenes', label: '精剪場次', render: ep => String(ep.stats.finecutScenes || '—'), total: String(totals.finecutScenes || '—') },
-        { key: 'totalScenes', label: '總場次', render: ep => String(ep.stats.totalScenes || '—'), total: String(totals.totalScenes || '—') },
+        { key: 'roughScenes', label: '初剪場次', render: ep => String(ep.stats.roughcutScenes), total: String(totals.roughcutScenes) },
+        { key: 'fineScenes', label: '精剪場次', render: ep => String(ep.stats.finecutScenes), total: String(totals.finecutScenes) },
+        { key: 'totalScenes', label: '總場次', render: ep => String(ep.stats.totalScenes), total: String(totals.totalScenes) },
         { key: 'roughPages', label: '初剪頁數', render: ep => ep.stats.roughcutPages > 0 ? ep.stats.roughcutPages.toFixed(1) : '—', total: totals.roughcutPages > 0 ? totals.roughcutPages.toFixed(1) : '—' },
         { key: 'avgPage', label: '頁均時長', render: ep => epAvgStr(ep.stats.roughcutSecs + ep.stats.finecutSecs, ep.stats.roughcutPages + ep.stats.finecutPages), total: globalAvgPageDur },
       ]
