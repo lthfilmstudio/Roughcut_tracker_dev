@@ -4,8 +4,7 @@ export interface ProjectConfig {
   id: string
   name: string
   type: ProjectType
-  passwordHash?: string
-  sheetId: string
+  sheetId: string  // legacy_sheet_id — 保留欄位給遷移期間的資料參照用，新建專案可空字串
   episodeCount?: number
   episodePrefix?: string
   createdAt?: string
