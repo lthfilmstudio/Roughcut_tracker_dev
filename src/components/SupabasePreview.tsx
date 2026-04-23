@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { getSupabaseClient, hasSupabaseConfig } from '../services/supabaseClient'
 
 // ====================================================
 // Supabase Preview
@@ -7,9 +8,6 @@ import { createClient, type Session, type SupabaseClient } from '@supabase/supab
 // 獨立於主 app 的 login/auth 流程。
 // 進入方式：網址後面加 #supabase-preview
 // ====================================================
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 type Project = {
   id: string
@@ -46,17 +44,19 @@ function secsToHMS(s: number | null): string {
 }
 
 export default function SupabasePreview() {
-  const client = useMemo<SupabaseClient>(
-    () => createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce', // code 放 query string，hash 保留給我們的路由
-      },
-    }),
-    [],
-  )
+  if (!hasSupabaseConfig()) {
+    return (
+      <div style={containerStyle}>
+        <h1>Supabase 未設定</h1>
+        <p>請在 .env 加入 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY。</p>
+      </div>
+    )
+  }
+  return <SupabasePreviewInner />
+}
+
+function SupabasePreviewInner() {
+  const client = getSupabaseClient()
 
   const [session, setSession] = useState<Session | null>(null)
   const [projects, setProjects] = useState<Project[] | null>(null)
@@ -154,15 +154,6 @@ export default function SupabasePreview() {
   }
 
   // ----- Render -----
-
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return (
-      <div style={containerStyle}>
-        <h1>Supabase 未設定</h1>
-        <p>請在 .env 加入 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY。</p>
-      </div>
-    )
-  }
 
   if (!session) {
     return (
