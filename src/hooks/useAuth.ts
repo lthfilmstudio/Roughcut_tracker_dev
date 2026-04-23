@@ -1,37 +1,60 @@
-import { useState, useEffect } from 'react'
-import { OAUTH_CONFIG, SHEETS_CONFIG } from '../config/sheets'
+import { useEffect, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { getSupabaseClient, hasSupabaseConfig } from '../services/supabaseClient'
 import type { AuthState } from '../types'
 
-export function useAuth(): AuthState & { login: () => void; logout: () => void } {
-  const [accessToken, setAccessToken] = useState<string | null>(
-    () => sessionStorage.getItem('goog_access_token'),
-  )
+export interface AuthAPI extends AuthState {
+  userEmail: string | null
+  userId: string | null
+  login: () => Promise<void>
+  logout: () => Promise<void>
+}
+
+export function useAuth(): AuthAPI {
+  const [session, setSession] = useState<Session | null>(null)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const hash = new URLSearchParams(window.location.hash.slice(1))
-    const token = hash.get('access_token')
-    if (token) {
-      sessionStorage.setItem('goog_access_token', token)
-      setAccessToken(token)
-      window.history.replaceState(null, '', window.location.pathname)
+    if (!hasSupabaseConfig()) {
+      setReady(true)
+      return
     }
+    const client = getSupabaseClient()
+
+    // 初次讀 session（可能是 PKCE 剛換完 code 回來）
+    client.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setReady(true)
+      // 清掉 URL 上的 PKCE ?code=xxx&state=xxx
+      if (window.location.search.includes('code=')) {
+        const clean = window.location.pathname + window.location.hash
+        history.replaceState(null, '', clean)
+      }
+    })
+
+    const { data: sub } = client.auth.onAuthStateChange((_evt, s) => setSession(s))
+    return () => sub.subscription.unsubscribe()
   }, [])
 
-  function login() {
-    const params = new URLSearchParams({
-      client_id: OAUTH_CONFIG.clientId,
-      redirect_uri: OAUTH_CONFIG.redirectUri,
-      response_type: 'token',
-      scope: SHEETS_CONFIG.scopes.join(' '),
-      prompt: 'consent',
+  async function login() {
+    const client = getSupabaseClient()
+    const { error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href },
     })
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+    if (error) console.error('Google 登入失敗：', error.message)
   }
 
-  function logout() {
-    sessionStorage.removeItem('goog_access_token')
-    setAccessToken(null)
+  async function logout() {
+    await getSupabaseClient().auth.signOut()
   }
 
-  return { accessToken, isAuthenticated: !!accessToken, login, logout }
+  return {
+    accessToken: session?.access_token ?? null,
+    isAuthenticated: ready && !!session,
+    userEmail: session?.user?.email ?? null,
+    userId: session?.user?.id ?? null,
+    login,
+    logout,
+  }
 }

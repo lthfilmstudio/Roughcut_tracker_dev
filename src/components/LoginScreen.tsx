@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import HelpModal from './HelpModal'
 
 interface Props {
-  onSubmit: (pwd: string) => void
+  onLogin: () => void | Promise<void>
   waiting?: boolean
   waitingLabel?: string
   error?: string
@@ -12,27 +12,12 @@ interface Props {
 }
 
 export default function LoginScreen({
-  onSubmit, waiting, waitingLabel, error,
-  title = '輸入專案密碼',
+  onLogin, waiting, waitingLabel, error,
+  title = '登入以繼續',
   sublabel = 'Roughcut Tracker',
-  hint = '忘記密碼？請聯絡剪輯指導',
+  hint = '登入後會看到你有權限的專案',
 }: Props) {
-  const [pwd, setPwd] = useState('')
-  const [localError, setLocalError] = useState('')
   const [helpOpen, setHelpOpen] = useState(false)
-
-  useEffect(() => {
-    if (error) {
-      setLocalError(error)
-      setPwd('')
-    }
-  }, [error])
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLocalError('')
-    onSubmit(pwd)
-  }
 
   if (waiting) {
     return (
@@ -49,20 +34,11 @@ export default function LoginScreen({
       <div style={s.card}>
         <p style={s.label}>{sublabel}</p>
         <h1 style={s.title}>{title}</h1>
-        <form onSubmit={handleSubmit} style={s.form}>
-          <input
-            type="password"
-            value={pwd}
-            onChange={(e) => { setPwd(e.target.value); setLocalError('') }}
-            placeholder="請輸入密碼"
-            style={{ ...s.input, borderColor: localError ? 'var(--color-missing)' : 'var(--border)' }}
-            autoFocus
-          />
-          {localError && <p style={s.error}>{localError}</p>}
-          <button type="submit" style={s.btn} disabled={!pwd}>
-            進入
-          </button>
-        </form>
+        <button type="button" onClick={() => onLogin()} style={s.googleBtn}>
+          <span style={s.gIcon}>G</span>
+          使用 Google 登入
+        </button>
+        {error && <p style={s.error}>{error}</p>}
         <p style={s.hint}>{hint}</p>
         <button type="button" style={s.helpLink} onClick={() => setHelpOpen(true)}>
           使用說明
@@ -87,16 +63,19 @@ const s: Record<string, React.CSSProperties> = {
     letterSpacing: '0.08em', textTransform: 'uppercase',
   },
   title: { fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 28 },
-  form: { display: 'flex', flexDirection: 'column', gap: 10 },
-  input: {
-    background: '#111', border: '1px solid', borderRadius: 8,
-    color: 'var(--text-primary)', padding: '12px 14px', outline: 'none', width: '100%',
+  googleBtn: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+    width: '100%', padding: 12,
+    background: 'var(--text-primary)', color: 'var(--bg)',
+    border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14,
+    cursor: 'pointer',
   },
-  error: { fontSize: 13, color: 'var(--color-missing)', margin: 0 },
-  btn: {
-    padding: 12, background: 'var(--text-primary)', color: 'var(--bg)',
-    border: 'none', borderRadius: 8, fontWeight: 600, marginTop: 4,
+  gIcon: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 22, height: 22, borderRadius: '50%',
+    background: '#4285F4', color: '#fff', fontWeight: 700, fontSize: 13,
   },
+  error: { fontSize: 13, color: 'var(--color-missing)', margin: '12px 0 0' },
   hint: { fontSize: 12, color: '#444', marginTop: 20, textAlign: 'center' },
   helpLink: {
     display: 'block', margin: '12px auto 0', background: 'transparent',
