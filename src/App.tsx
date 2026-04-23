@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard'
 import EpisodeDetail from './components/EpisodeDetail'
 import AdminDashboard from './components/AdminDashboard'
 import QuickPage from './components/QuickPage'
+import SupabasePreview from './components/SupabasePreview'
 import { getTabNames, type ProjectConfig } from './config/projectConfig'
 import { useProject } from './contexts/ProjectContext'
 import { getDataService } from './services'
@@ -20,7 +21,25 @@ const ADMIN_PASSWORD_HASH = import.meta.env.VITE_ADMIN_PASSWORD ?? ''
 
 type View = { page: 'dashboard' } | { page: 'episode'; ep: string } | { page: 'quick' }
 
+function useSupabasePreviewRoute(): boolean {
+  // 允許兩種情況：
+  // 1. 直接進來 #supabase-preview
+  // 2. Supabase OAuth 回傳後 hash 被加上 #access_token=...，變成 #supabase-preview#access_token=...
+  const check = () => window.location.hash.startsWith('#supabase-preview')
+  const [match, setMatch] = useState(check)
+  useEffect(() => {
+    const onChange = () => setMatch(check())
+    window.addEventListener('hashchange', onChange)
+    return () => window.removeEventListener('hashchange', onChange)
+  }, [])
+  return match
+}
+
 export default function App() {
+  // Supabase preview 頁（獨立流程，不走 Google Sheet 登入）
+  const isSupabasePreview = useSupabasePreviewRoute()
+  if (isSupabasePreview) return <SupabasePreview />
+
   const { project, setProject } = useProject()
   const { isAuthenticated, accessToken, login, logout } = useAuth()
 
