@@ -124,6 +124,12 @@ export class SupabaseService implements DataService {
   // projects
   // ============================================================
 
+  async isSuperAdmin(): Promise<boolean> {
+    const { data, error } = await this.client.rpc('is_super_admin')
+    if (error) throw new Error(`isSuperAdmin: ${error.message}`)
+    return data === true
+  }
+
   async getProjects(): Promise<ProjectConfig[]> {
     const { data, error } = await this.client
       .from('projects')
