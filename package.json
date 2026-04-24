@@ -11,7 +11,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
-  "homepage": "https://lthfilmstudio.github.io/Roughcut_tracker_dev",
+  "homepage": "https://tracker.lthfilmstudio.com",
   "dependencies": {
     "@supabase/supabase-js": "^2.104.0",
     "dotenv": "^17.4.2",
