@@ -5,6 +5,7 @@ import type {
   ProjectMember,
   MemberRole,
   AddMemberResult,
+  PendingInvite,
 } from './dataService'
 import type { SceneRow, SummaryRow } from '../types'
 import {
@@ -163,6 +164,22 @@ export class SupabaseService implements DataService {
       p_project_id: projectId,
     })
     if (error) throw new Error(`removeProjectMember: ${error.message}`)
+  }
+
+  async listPendingInvites(projectId: string): Promise<PendingInvite[]> {
+    const { data, error } = await this.client.rpc('list_pending_invites', { p_project_id: projectId })
+    if (error) throw new Error(`listPendingInvites: ${error.message}`)
+    return (data ?? []).map((r: { id: string; email: string; role: MemberRole; created_at: string }) => ({
+      id: r.id,
+      email: r.email,
+      role: r.role,
+      createdAt: r.created_at,
+    }))
+  }
+
+  async cancelPendingInvite(inviteId: string): Promise<void> {
+    const { error } = await this.client.rpc('cancel_pending_invite', { p_invite_id: inviteId })
+    if (error) throw new Error(`cancelPendingInvite: ${error.message}`)
   }
 
   async getProjectSize(id: string): Promise<{ episodes: number; scenes: number }> {

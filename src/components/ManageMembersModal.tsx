@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getDataService } from '../services'
 import type { ProjectConfig } from '../config/projectConfig'
-import type { ProjectMember, MemberRole } from '../services/dataService'
+import type { ProjectMember, MemberRole, PendingInvite } from '../services/dataService'
 
 interface Props {
   project: ProjectConfig
@@ -11,12 +11,18 @@ interface Props {
 
 export default function ManageMembersModal({ project, currentUserEmail, onClose }: Props) {
   const [members, setMembers] = useState<ProjectMember[] | null>(null)
+  const [pending, setPending] = useState<PendingInvite[] | null>(null)
   const [loadErr, setLoadErr] = useState<string | null>(null)
 
   const refresh = async () => {
     try {
-      const list = await getDataService().listProjectMembers(project.id)
+      const svc = getDataService()
+      const [list, pendingList] = await Promise.all([
+        svc.listProjectMembers(project.id),
+        svc.listPendingInvites(project.id),
+      ])
       setMembers(list)
+      setPending(pendingList)
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : String(e))
     }
@@ -58,6 +64,17 @@ export default function ManageMembersModal({ project, currentUserEmail, onClose 
             ))}
           </ul>
         )}
+
+        {pending && pending.length > 0 && (
+          <>
+            <div style={s.sectionLabel}>待加入（對方登入後自動生效）</div>
+            <ul style={s.memberList}>
+              {pending.map(inv => (
+                <PendingRow key={inv.id} invite={inv} onChanged={refresh} />
+              ))}
+            </ul>
+          </>
+        )}
       </div>
     </div>
   )
@@ -82,16 +99,16 @@ function AddMemberForm({ projectId, onAdded }: { projectId: string; onAdded: () 
     setMsg(null)
     try {
       const res = await getDataService().addProjectMemberByEmail(projectId, email.trim(), role)
-      if (res.status === 'not_found') {
+      if (res.status === 'pending') {
         setMsg({
-          type: 'warn',
-          text: `${res.email} 還沒登入過系統，請對方先開 tracker.lthfilmstudio.com 用 Google 登入一次，再回來加。`,
+          type: 'ok',
+          text: `${res.email} 尚未登入過，已建立邀請。對方第一次登入 tracker.lthfilmstudio.com 時會自動加入。`,
         })
       } else {
         setMsg({ type: 'ok', text: `${res.email} 已加入為 ${role}` })
-        setEmail('')
-        await onAdded()
       }
+      setEmail('')
+      await onAdded()
     } catch (e) {
       setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) })
     }
@@ -197,6 +214,45 @@ function MemberRow({
           </button>
         </div>
       )}
+      {err && <div style={s.rowErr}>{err}</div>}
+    </li>
+  )
+}
+
+// ----------------------------------------------------------------
+// Pending invite 列（取消邀請）
+// ----------------------------------------------------------------
+
+function PendingRow({ invite, onChanged }: { invite: PendingInvite; onChanged: () => Promise<void> }) {
+  const [cancelling, setCancelling] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const handleCancel = async () => {
+    setCancelling(true)
+    setErr(null)
+    try {
+      await getDataService().cancelPendingInvite(invite.id)
+      await onChanged()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+      setCancelling(false)
+    }
+  }
+
+  return (
+    <li style={{ ...s.memberRow, borderStyle: 'dashed', opacity: 0.85 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={s.memberEmail}>{invite.email}</div>
+        <div style={s.memberMeta}>{invite.role}　·　等待登入</div>
+      </div>
+      <button
+        type="button"
+        onClick={handleCancel}
+        disabled={cancelling}
+        style={s.rowRemoveBtn}
+      >
+        {cancelling ? '⋯' : '取消邀請'}
+      </button>
       {err && <div style={s.rowErr}>{err}</div>}
     </li>
   )

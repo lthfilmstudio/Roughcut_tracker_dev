@@ -19,14 +19,23 @@ export interface ProjectMember {
 
 export type AddMemberResult =
   | { status: 'ok'; userId: string; email: string }
-  | { status: 'not_found'; email: string }
+  | { status: 'pending'; email: string }
+
+export interface PendingInvite {
+  id: string
+  email: string
+  role: MemberRole
+  createdAt: string
+}
 
 export interface DataService {
   isSuperAdmin(): Promise<boolean>
   getProjectSize(id: string): Promise<{ episodes: number; scenes: number }>
   listProjectMembers(projectId: string): Promise<ProjectMember[]>
+  listPendingInvites(projectId: string): Promise<PendingInvite[]>
   addProjectMemberByEmail(projectId: string, email: string, role: MemberRole): Promise<AddMemberResult>
   removeProjectMember(projectId: string, userId: string): Promise<void>
+  cancelPendingInvite(inviteId: string): Promise<void>
   getProjects(): Promise<ProjectConfig[]>
   createProject(p: ProjectConfig): Promise<void>
   createProjectSheet(p: ProjectConfig): Promise<CreateSheetResult>
