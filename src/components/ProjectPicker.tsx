@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getDataService } from '../services'
 import type { ProjectConfig, ProjectType } from '../config/projectConfig'
+import ManageMembersModal from './ManageMembersModal'
 
 interface Props {
   userEmail: string | null
@@ -14,6 +15,7 @@ export default function ProjectPicker({ userEmail, onPick, onLogout }: Props) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [managingId, setManagingId] = useState<string | null>(null)
 
   const refresh = async () => {
     const svc = getDataService()
@@ -78,19 +80,42 @@ export default function ProjectPicker({ userEmail, onPick, onLogout }: Props) {
                   </span>
                 </button>
                 {isSuperAdmin && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setDeletingId(p.id) }}
-                    style={s.deleteIcon}
-                    title={`刪除 ${p.name}`}
-                  >
-                    ✕
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setManagingId(p.id) }}
+                      style={s.manageIcon}
+                      title={`管理 ${p.name} 的成員`}
+                      aria-label="管理成員"
+                    >
+                      👥
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setDeletingId(p.id) }}
+                      style={s.deleteIcon}
+                      title={`刪除 ${p.name}`}
+                    >
+                      ✕
+                    </button>
+                  </>
                 )}
               </li>
             ))}
           </ul>
         )}
+
+        {managingId && projects && (() => {
+          const target = projects.find(p => p.id === managingId)
+          if (!target) return null
+          return (
+            <ManageMembersModal
+              project={target}
+              currentUserEmail={userEmail}
+              onClose={() => setManagingId(null)}
+            />
+          )
+        })()}
 
         {deletingId && projects && (() => {
           const target = projects.find(p => p.id === deletingId)
@@ -405,6 +430,14 @@ const s: Record<string, React.CSSProperties> = {
   projectName: { fontWeight: 600, fontSize: 15 },
   projectMeta: { fontSize: 12, color: 'var(--text-secondary)' },
   projectRow: { display: 'flex', alignItems: 'stretch', gap: 6 },
+  manageIcon: {
+    flex: '0 0 auto', width: 40, minHeight: '100%',
+    background: 'transparent', color: 'var(--text-secondary)',
+    border: '1px solid var(--border)', borderRadius: 8,
+    cursor: 'pointer', fontSize: 16, lineHeight: 1,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 0,
+  },
   deleteIcon: {
     flex: '0 0 auto', width: 40, minHeight: '100%',
     background: 'transparent', color: 'var(--text-secondary)',

@@ -8,9 +8,25 @@ export interface CreateSheetResult {
   sheetUrl: string
 }
 
+export type MemberRole = 'admin' | 'editor' | 'viewer'
+
+export interface ProjectMember {
+  userId: string
+  email: string
+  role: MemberRole
+  createdAt: string
+}
+
+export type AddMemberResult =
+  | { status: 'ok'; userId: string; email: string }
+  | { status: 'not_found'; email: string }
+
 export interface DataService {
   isSuperAdmin(): Promise<boolean>
   getProjectSize(id: string): Promise<{ episodes: number; scenes: number }>
+  listProjectMembers(projectId: string): Promise<ProjectMember[]>
+  addProjectMemberByEmail(projectId: string, email: string, role: MemberRole): Promise<AddMemberResult>
+  removeProjectMember(projectId: string, userId: string): Promise<void>
   getProjects(): Promise<ProjectConfig[]>
   createProject(p: ProjectConfig): Promise<void>
   createProjectSheet(p: ProjectConfig): Promise<CreateSheetResult>

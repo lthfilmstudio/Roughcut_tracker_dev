@@ -1,5 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { DataService, CreateSheetResult } from './dataService'
+import type {
+  DataService,
+  CreateSheetResult,
+  ProjectMember,
+  MemberRole,
+  AddMemberResult,
+} from './dataService'
 import type { SceneRow, SummaryRow } from '../types'
 import {
   computeEpisodeStats,
@@ -128,6 +134,35 @@ export class SupabaseService implements DataService {
     const { data, error } = await this.client.rpc('is_super_admin')
     if (error) throw new Error(`isSuperAdmin: ${error.message}`)
     return data === true
+  }
+
+  async listProjectMembers(projectId: string): Promise<ProjectMember[]> {
+    const { data, error } = await this.client.rpc('list_project_members', { p_project_id: projectId })
+    if (error) throw new Error(`listProjectMembers: ${error.message}`)
+    return (data ?? []).map((r: { user_id: string; email: string; role: MemberRole; created_at: string }) => ({
+      userId: r.user_id,
+      email: r.email,
+      role: r.role,
+      createdAt: r.created_at,
+    }))
+  }
+
+  async addProjectMemberByEmail(projectId: string, email: string, role: MemberRole): Promise<AddMemberResult> {
+    const { data, error } = await this.client.rpc('add_project_member_by_email', {
+      p_email: email,
+      p_project_id: projectId,
+      p_role: role,
+    })
+    if (error) throw new Error(`addProjectMemberByEmail: ${error.message}`)
+    return data as AddMemberResult
+  }
+
+  async removeProjectMember(projectId: string, userId: string): Promise<void> {
+    const { error } = await this.client.rpc('remove_project_member', {
+      p_user_id: userId,
+      p_project_id: projectId,
+    })
+    if (error) throw new Error(`removeProjectMember: ${error.message}`)
   }
 
   async getProjectSize(id: string): Promise<{ episodes: number; scenes: number }> {
