@@ -13,6 +13,7 @@ export default function ProjectPicker({ userEmail, onPick, onLogout }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const refresh = async () => {
     const svc = getDataService()
@@ -69,17 +70,42 @@ export default function ProjectPicker({ userEmail, onPick, onLogout }: Props) {
         {projects && projects.length > 0 && (
           <ul style={s.list}>
             {projects.map(p => (
-              <li key={p.id}>
+              <li key={p.id} style={s.projectRow}>
                 <button type="button" onClick={() => onPick(p)} style={s.projectBtn}>
                   <span style={s.projectName}>{p.name}</span>
                   <span style={s.projectMeta}>
                     {p.type === 'series' ? `劇集 · ${p.episodeCount ?? '?'} 集` : '電影'}
                   </span>
                 </button>
+                {isSuperAdmin && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setDeletingId(p.id) }}
+                    style={s.deleteIcon}
+                    title={`刪除 ${p.name}`}
+                  >
+                    ✕
+                  </button>
+                )}
               </li>
             ))}
           </ul>
         )}
+
+        {deletingId && projects && (() => {
+          const target = projects.find(p => p.id === deletingId)
+          if (!target) return null
+          return (
+            <DeleteProjectConfirm
+              project={target}
+              onCancel={() => setDeletingId(null)}
+              onDeleted={async () => {
+                setDeletingId(null)
+                await refresh()
+              }}
+            />
+          )
+        })()}
 
         {isSuperAdmin && !showForm && (
           <button type="button" onClick={() => setShowForm(true)} style={s.addBtn}>
@@ -244,6 +270,94 @@ function AddProjectForm({ onCancel, onCreated }: FormProps) {
   )
 }
 
+// ----------------------------------------------------------------
+// 刪除確認 Modal（防呆：要輸入中文名才能刪）
+// ----------------------------------------------------------------
+
+interface DeleteProps {
+  project: ProjectConfig
+  onCancel: () => void
+  onDeleted: () => void
+}
+
+function DeleteProjectConfirm({ project, onCancel, onDeleted }: DeleteProps) {
+  const [size, setSize] = useState<{ episodes: number; scenes: number } | null>(null)
+  const [typed, setTyped] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    getDataService().getProjectSize(project.id)
+      .then(setSize)
+      .catch(e => setErr(e instanceof Error ? e.message : String(e)))
+  }, [project.id])
+
+  const canDelete = typed.trim() === project.name && !submitting
+
+  const handleDelete = async () => {
+    if (!canDelete) return
+    setSubmitting(true)
+    setErr(null)
+    try {
+      await getDataService().deleteProject(project.id)
+      onDeleted()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div style={s.modalOverlay} onClick={onCancel}>
+      <div style={s.modalBox} onClick={(e) => e.stopPropagation()}>
+        <div style={s.modalTitle}>刪除專案</div>
+        <p style={s.modalProjectName}>{project.name}</p>
+        <p style={s.modalWarn}>
+          此操作將永久刪除{' '}
+          {size ? (
+            <strong style={{ color: '#FF5252' }}>
+              {size.episodes} 集、{size.scenes} 場次資料
+            </strong>
+          ) : (
+            <span style={{ color: 'var(--text-secondary)' }}>讀取中⋯</span>
+          )}
+          。<strong style={{ color: '#FF5252' }}>無法還原。</strong>
+        </p>
+
+        <label style={s.field}>
+          <span style={s.fieldLabel}>
+            請輸入專案中文名「<strong>{project.name}</strong>」以確認刪除
+          </span>
+          <input
+            type="text"
+            value={typed}
+            onChange={e => setTyped(e.target.value)}
+            placeholder={project.name}
+            style={s.input}
+            autoFocus
+          />
+        </label>
+
+        {err && <p style={s.error}>刪除失敗：{err}</p>}
+
+        <div style={s.formActions}>
+          <button type="button" onClick={onCancel} style={s.cancelBtn} disabled={submitting}>
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!canDelete}
+            style={{ ...s.submitBtn, ...s.deleteBtn, opacity: canDelete ? 1 : 0.4 }}
+          >
+            {submitting ? '刪除中⋯' : '確定刪除'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const s: Record<string, React.CSSProperties> = {
   wrapper: {
     minHeight: '100vh', display: 'flex', alignItems: 'center',
@@ -289,6 +403,38 @@ const s: Record<string, React.CSSProperties> = {
   },
   projectName: { fontWeight: 600, fontSize: 15 },
   projectMeta: { fontSize: 12, color: 'var(--text-secondary)' },
+  projectRow: { position: 'relative' },
+  deleteIcon: {
+    position: 'absolute', top: 6, right: 6,
+    width: 22, height: 22, borderRadius: 11,
+    background: 'transparent', color: 'var(--text-secondary)',
+    border: '1px solid var(--border)',
+    cursor: 'pointer', fontSize: 11, lineHeight: 1,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: 0,
+  },
+  modalOverlay: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1000, padding: 16,
+  },
+  modalBox: {
+    width: 400, maxWidth: '100%', padding: 24,
+    background: 'var(--card-bg)', borderRadius: 12,
+    border: '1px solid #FF5252', display: 'flex', flexDirection: 'column', gap: 12,
+  },
+  modalTitle: {
+    fontSize: 16, fontWeight: 600, color: '#FF5252',
+  },
+  modalProjectName: {
+    fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0,
+  },
+  modalWarn: {
+    fontSize: 13, color: 'var(--text-primary)', margin: '0 0 8px', lineHeight: 1.6,
+  },
+  deleteBtn: {
+    background: '#FF5252', color: '#FFFFFF',
+  },
   addBtn: {
     width: '100%', marginTop: 12, padding: '12px',
     background: 'transparent', color: 'var(--text-secondary)',

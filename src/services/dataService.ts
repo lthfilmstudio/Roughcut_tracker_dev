@@ -10,6 +10,7 @@ export interface CreateSheetResult {
 
 export interface DataService {
   isSuperAdmin(): Promise<boolean>
+  getProjectSize(id: string): Promise<{ episodes: number; scenes: number }>
   getProjects(): Promise<ProjectConfig[]>
   createProject(p: ProjectConfig): Promise<void>
   createProjectSheet(p: ProjectConfig): Promise<CreateSheetResult>

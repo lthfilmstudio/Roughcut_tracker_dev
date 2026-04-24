@@ -130,6 +130,31 @@ export class SupabaseService implements DataService {
     return data === true
   }
 
+  async getProjectSize(id: string): Promise<{ episodes: number; scenes: number }> {
+    const epRes = await this.client
+      .from('episodes')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_id', id)
+    if (epRes.error) throw new Error(`getProjectSize episodes: ${epRes.error.message}`)
+
+    const { data: epIds, error: epIdsErr } = await this.client
+      .from('episodes').select('id').eq('project_id', id)
+    if (epIdsErr) throw new Error(`getProjectSize epIds: ${epIdsErr.message}`)
+
+    const ids = (epIds ?? []).map(r => r.id)
+    let scenes = 0
+    if (ids.length > 0) {
+      const scRes = await this.client
+        .from('scenes')
+        .select('id', { count: 'exact', head: true })
+        .in('episode_id', ids)
+      if (scRes.error) throw new Error(`getProjectSize scenes: ${scRes.error.message}`)
+      scenes = scRes.count ?? 0
+    }
+
+    return { episodes: epRes.count ?? 0, scenes }
+  }
+
   async getProjects(): Promise<ProjectConfig[]> {
     const { data, error } = await this.client
       .from('projects')
