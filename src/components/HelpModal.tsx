@@ -31,23 +31,23 @@ export default function HelpModal({ open, onClose }: Props) {
         <div style={s.body}>
           <Section title="這是什麼？">
             <p style={s.p}>
-              給剪輯指導用的初剪進度追蹤工具，取代手動維護的 Google Sheet。
+              給剪輯指導用的初剪進度追蹤工具。
               一個入口管多個專案（劇集 / 電影），場次狀態、剪輯長度、缺鏡筆記都能即時更新。
             </p>
           </Section>
 
           <Section title="快速上手">
             <ol style={s.ol}>
-              <li>用 Google 帳號完成 OAuth 授權</li>
-              <li>輸入剪輯指導給你的<strong>專案密碼</strong>進入專案</li>
+              <li>用 Google 帳號登入</li>
+              <li>從清單選一個你有權限的專案進入</li>
               <li>劇集：從總覽點進某一集；電影：直接看到場次表</li>
               <li>點場次列即可編輯，Enter 儲存、Esc 取消</li>
               <li>右上角可匯出 Markdown / CSV / PDF 給導演 / 製片</li>
             </ol>
           </Section>
 
-          <Section title="找不到專案 / 密碼錯誤？">
-            <p style={s.p}>密碼由剪輯指導統一發放，忘記或沒收到請直接聯絡剪輯指導。</p>
+          <Section title="看不到專案？">
+            <p style={s.p}>權限由剪輯指導統一發放。沒看到應該有的專案，請聯絡剪輯指導確認 email 已加入該專案成員。</p>
           </Section>
 
           <Section title="列印 / PDF 匯出">
@@ -59,9 +59,8 @@ export default function HelpModal({ open, onClose }: Props) {
 
           <Section title="管理者功能">
             <p style={s.p}>
-              輸入 admin 密碼會直接進管理介面，可新增 / 編輯 / 刪除專案。
-              新增專案時系統會自動建立對應的 Google Sheet 與分頁結構，
-              建完後請手動把 Sheet 拖進「<code style={s.code}>00_Roughcut_Tracker</code>」資料夾集中管理。
+              super_admin 可在專案清單頁直接新增 / 刪除專案、邀請成員（按 email 邀請，對方登入時自動加入）。
+              一般使用者看不到這些按鈕。
             </p>
           </Section>
         </div>

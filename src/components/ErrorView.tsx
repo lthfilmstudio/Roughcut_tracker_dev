@@ -8,7 +8,7 @@ export default function ErrorView({ error }: Props) {
   if (is403) {
     return (
       <div style={s.wrap}>
-        <p style={s.msg}>暫時無法連接 Google Sheets，請稍等 1-2 分鐘後重新整理頁面</p>
+        <p style={s.msg}>暫時無法連接 Supabase，請稍等 1-2 分鐘後重新整理頁面</p>
         <button style={s.btn} onClick={() => window.location.reload()}>重新整理</button>
       </div>
     )
