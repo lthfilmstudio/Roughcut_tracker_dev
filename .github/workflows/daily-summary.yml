@@ -1,10 +1,11 @@
 name: Daily Telegram Summary
 
-# 每天台北 23:55 把當日剪輯動態推到 Telegram。
-# 23:55 Asia/Taipei = 15:55 UTC
+# 每天台北 23:47 把當日剪輯動態推到 Telegram。
+# 23:47 Asia/Taipei = 15:47 UTC
+# 避開整 5/10 分鐘的 GitHub Actions schedule 高峰（會延後幾十分鐘到數小時）。
 on:
   schedule:
-    - cron: '55 15 * * *'
+    - cron: '47 15 * * *'
   workflow_dispatch:
 
 jobs:
