@@ -200,12 +200,12 @@ def main() -> None:
             lines.append(f"  ⟳ 修改 {len(bucket['modified'])} 場：{keys}")
             grand_mod += len(bucket["modified"])
 
-        # 今日新增數據（只算 new，避免重複算 modified）
-        today_secs = sum(
-            s.get("roughcut_length_secs") or 0 for s in bucket["new"]
-        )
-        today_pages = sum(float(s["pages"]) for s in bucket["new"] if s.get("pages"))
-        if bucket["new"]:
+        # 今日合計：算所有今日有動到的場次（新增+修改）的長度與頁數
+        # 沒長度的（null）不計，避免拉低訊號
+        touched = bucket["new"] + bucket["modified"]
+        today_secs = sum(s.get("roughcut_length_secs") or 0 for s in touched)
+        today_pages = sum(float(s["pages"]) for s in touched if s.get("pages"))
+        if touched:
             lines.append(
                 f"  +{fmt_secs(today_secs)} / +{fmt_pages(today_pages)} 頁"
             )
