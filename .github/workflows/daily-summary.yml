@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: '38 15 * * *'
   workflow_dispatch:
+    inputs:
+      date:
+        description: '指定台北日期 YYYY-MM-DD（空白則用今天）。過午夜補跑時用來抓昨天'
+        required: false
+        type: string
 
 jobs:
   send:
@@ -25,4 +30,5 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SUMMARY_DATE: ${{ inputs.date }}
         run: python scripts/daily-summary.py

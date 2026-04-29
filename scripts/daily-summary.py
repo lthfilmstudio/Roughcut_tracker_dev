@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""每日剪輯日報：撈今日有變動的場次，組訊息推到 Telegram。
+"""每日剪輯日報：撈指定日期有變動的場次，組訊息推到 Telegram。
 
-跑在 GitHub Actions cron（台北 23:55）。需要三個環境變數：
+跑在 GitHub Actions cron（台北 23:38）。需要三個環境變數：
 - SUPABASE_SERVICE_ROLE_KEY（繞過 RLS 讀全部專案）
 - TELEGRAM_BOT_TOKEN
 - TELEGRAM_CHAT_ID
+
+可選參數 / 環境變數：
+- --date YYYY-MM-DD 或 SUMMARY_DATE 環境變數：指定要撈哪一天（台北日期）。
+  預設用「現在的台北日期」，但過午夜手動補跑就會錯位，這時用 --date 補昨天。
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -15,7 +20,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 TAIPEI = timezone(timedelta(hours=8))
 SUPABASE_URL = "https://ntxqnvgpvshqwodagupt.supabase.co"
@@ -88,9 +93,20 @@ def telegram_send(text: str) -> None:
             sys.exit(1)
 
 
+def resolve_target_date() -> date:
+    """決定要撈哪一天（台北日期）。優先序：CLI --date > SUMMARY_DATE env > 現在的台北日期。"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", help="台北日期 YYYY-MM-DD，預設今天")
+    args = parser.parse_args()
+    raw = args.date or os.environ.get("SUMMARY_DATE", "").strip() or None
+    if raw:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    return datetime.now(TAIPEI).date()
+
+
 def main() -> None:
-    now_tw = datetime.now(TAIPEI)
-    today_start = now_tw.replace(hour=0, minute=0, second=0, microsecond=0)
+    target = resolve_target_date()
+    today_start = datetime.combine(target, datetime.min.time(), tzinfo=TAIPEI)
     tomorrow_start = today_start + timedelta(days=1)
     today_iso = today_start.isoformat()
     tomorrow_iso = tomorrow_start.isoformat()
