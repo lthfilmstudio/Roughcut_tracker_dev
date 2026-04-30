@@ -1,19 +1,15 @@
 name: Daily Telegram Summary
 
-# 每天台北 23:38 把當日剪輯動態推到 Telegram。
+# 每天台北 23:38 把「跟上次推播比有變動」的內容推到 Telegram。
 # 23:38 Asia/Taipei = 15:38 UTC
 # 避開整 5/10 分鐘的 GitHub Actions schedule 高峰（會延後幾十分鐘到數小時）。
-# 04-28 加進來後，GitHub Actions 連兩天沒 register schedule（手動 dispatch 才會跑），
-# 改 cron 強制重新註冊；原本是 :47。
+#
+# 新版邏輯：跟 Supabase summary_state 表存的「上次推播快照」比 diff，
+# 不再依賴執行當下的時鐘日期。即使 cron 跨午夜延遲也不會算錯。
 on:
   schedule:
     - cron: '38 15 * * *'
   workflow_dispatch:
-    inputs:
-      date:
-        description: '指定台北日期 YYYY-MM-DD（空白則用今天）。過午夜補跑時用來抓昨天'
-        required: false
-        type: string
 
 jobs:
   send:
@@ -30,5 +26,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          SUMMARY_DATE: ${{ inputs.date }}
         run: python scripts/daily-summary.py
