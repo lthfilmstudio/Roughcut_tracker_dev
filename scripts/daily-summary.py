@@ -299,12 +299,18 @@ def main() -> None:
         key=lambda kv: proj_meta.get(kv[0], {}).get("name", ""),
     )
 
+    displayed_projects = 0
     for proj_id, ep_ids in sorted_projs:
         pmeta = proj_meta.get(proj_id, {"name": "?", "type": "?"})
+        # 過濾掉「還沒剪任何一場」的集數（cut_scenes=0），避免 0/N 場・00:00 雜訊
         ep_ids_sorted = sorted(
-            ep_ids,
+            [eid for eid in ep_ids if curr_ep_totals.get(eid, {}).get("cut_scenes", 0) > 0],
             key=lambda eid: (changed_scenes_by_ep[eid]["ep_meta"] or {}).get("ep_key", ""),
         )
+        # 整個專案的變動全部都是「未開剪的新集數」就跳過，連標題都不印
+        if not ep_ids_sorted:
+            continue
+        displayed_projects += 1
 
         for ep_id in ep_ids_sorted:
             bucket = changed_scenes_by_ep[ep_id]
@@ -333,16 +339,26 @@ def main() -> None:
             )
 
         # 全劇累積（這個專案的所有 ep 加總，跟上次比）
+        # 加一條空行做視覺分隔，避免黏在最後一集後面看起來像那一集的數字
         curr_proj = proj_totals(curr_ep_totals, proj_id)
         prev_proj = proj_totals(prev_eps, proj_id)
         proj_delta = curr_proj["total_secs"] - prev_proj["total_secs"]
         grand_delta_secs += proj_delta
         proj_delta_str = f"（{fmt_delta_secs(proj_delta)}）" if proj_delta != 0 else ""
+        lines.append("")
         lines.append(
-            f"  全劇 {curr_proj['cut_scenes']}/{curr_proj['total_scenes']} 場・"
+            f"🎬 全劇 {curr_proj['cut_scenes']}/{curr_proj['total_scenes']} 場・"
             f"{fmt_secs(curr_proj['total_secs'])}{proj_delta_str}"
         )
         lines.append("")
+
+    # 過濾後沒專案能顯示（變動全是新增未剪集數），改走「無變動」訊息
+    if displayed_projects == 0:
+        text = f"📽 剪輯日報 {date_label}\n\n（自上次推播無變動）💤"
+        telegram_send(text)
+        save_state({"episodes": curr_ep_totals})
+        print("[ok] all changes filtered out (no cut activity); sent idle notice")
+        return
 
     # 總結那一行
     if grand_delta_secs != 0:
@@ -354,8 +370,8 @@ def main() -> None:
     telegram_send(text)
     save_state({"episodes": curr_ep_totals})
     print(
-        f"[ok] sent diff summary: {len(changed_ep_ids)} episodes changed across "
-        f"{len(proj_to_eps)} projects, grand_delta={grand_delta_secs}s"
+        f"[ok] sent diff summary: {displayed_projects} projects displayed "
+        f"({len(changed_ep_ids)} eps changed total), grand_delta={grand_delta_secs}s"
     )
 
 
