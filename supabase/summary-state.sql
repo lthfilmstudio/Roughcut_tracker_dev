@@ -10,7 +10,10 @@
 --   - snapshot：上次推播當下，每集的累積快照（jsonb）
 --     格式：{"episodes": {"<ep_id>": {"total_secs": 1234,
 --                                     "cut_scenes": 12,
---                                     "total_scenes": 20}}}
+--                                     "total_scenes": 20}},
+--            "scenes": {"<scene_id>": {"status": "已初剪", "secs": 123}},
+--            "latest_message": {"text": "最新 Telegram 推播原文",
+--                               "sent_at": "2026-05-18T15:38:00+00:00"}}
 --
 -- 怎麼跑：
 --   1. 進 Supabase 專案 → 左側 SQL Editor

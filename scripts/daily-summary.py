@@ -189,16 +189,28 @@ def load_state() -> tuple[datetime, dict, dict]:
     return last_push_at, snapshot.get("episodes", {}) or {}, snapshot.get("scenes", {}) or {}
 
 
-def save_state(snapshot: dict) -> None:
+def with_latest_message(snapshot: dict, text: str, sent_at_iso: str) -> dict:
+    """把最新 Telegram 推播文字也留在 snapshot 裡，給私人入口網站讀。"""
+    return {
+        **snapshot,
+        "latest_message": {
+            "text": text,
+            "sent_at": sent_at_iso,
+        },
+    }
+
+
+def save_state(snapshot: dict, text: str) -> None:
     """更新 last_push_at = now()、snapshot 換成這次推播後的全貌。"""
+    now_iso = datetime.now(timezone.utc).isoformat()
     supabase_request(
         "PATCH",
         "summary_state",
         params=[("id", f"eq.{STATE_ID}")],
         body={
-            "last_push_at": datetime.now(timezone.utc).isoformat(),
-            "snapshot": snapshot,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "last_push_at": now_iso,
+            "snapshot": with_latest_message(snapshot, text, now_iso),
+            "updated_at": now_iso,
         },
         extra_headers={"Prefer": "return=minimal"},
     )
@@ -353,7 +365,7 @@ def main() -> None:
     if not proj_ids_with_changes:
         text = f"📽 剪輯日報 {date_label}\n\n（自上次推播無變動）💤"
         telegram_send(text)
-        save_state({"episodes": curr_ep_totals, "scenes": curr_scenes})
+        save_state({"episodes": curr_ep_totals, "scenes": curr_scenes}, text)
         print("[ok] no changes since last push; sent idle notice")
         return
 
@@ -431,7 +443,7 @@ def main() -> None:
     if displayed_projects == 0:
         text = f"📽 剪輯日報 {date_label}\n\n（自上次推播無變動）💤"
         telegram_send(text)
-        save_state({"episodes": curr_ep_totals, "scenes": curr_scenes})
+        save_state({"episodes": curr_ep_totals, "scenes": curr_scenes}, text)
         print("[ok] all changes filtered out (no cut activity); sent idle notice")
         return
 
@@ -443,7 +455,7 @@ def main() -> None:
 
     text = "\n".join(lines).rstrip()
     telegram_send(text)
-    save_state({"episodes": curr_ep_totals, "scenes": curr_scenes})
+    save_state({"episodes": curr_ep_totals, "scenes": curr_scenes}, text)
     print(
         f"[ok] sent diff summary: {displayed_projects} projects "
         f"(new={sum(len(v) for v in new_by_proj.values())}, "
