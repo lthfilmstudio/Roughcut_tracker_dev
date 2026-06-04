@@ -110,10 +110,12 @@ export default function SceneTable({
   const batchMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const draftRef = useRef<SceneRow | null>(null)
+  const editRowRef = useRef<number | null>(null)
   const autoSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const lastQueuedDraftKeyRef = useRef('')
 
   useEffect(() => { draftRef.current = draft }, [draft])
+  useEffect(() => { editRowRef.current = editRow }, [editRow])
 
   useEffect(() => {
     setEditRow(null)
@@ -151,15 +153,17 @@ export default function SceneTable({
   }, [isMobile, editRow, showAddRow])
 
   useEffect(() => {
-    if (editRow === null) return
-    function onAnyMouseDown() {
+    if (editRow === null || isMobile) return
+    function onAnyMouseDown(e: MouseEvent) {
       const currentDraft = draftRef.current
       if (!currentDraft || editRow === null) return
-      queueAutoSave(editRow, currentDraft)
+      const target = e.target as Element | null
+      const clickedInsideEdit = !!target?.closest('[data-scene-editing="true"]')
+      queueAutoSave(editRow, currentDraft, { close: !clickedInsideEdit })
     }
     document.addEventListener('mousedown', onAnyMouseDown)
     return () => document.removeEventListener('mousedown', onAnyMouseDown)
-  }, [editRow])
+  }, [editRow, isMobile])
 
   function startEdit(i: number) {
     const base = scenes[i]
@@ -181,9 +185,11 @@ export default function SceneTable({
     try {
       await onUpdateScene(i, currentDraft)
       if (opts.close !== false) {
-        setEditRow(null)
-        setDraft(null)
-        lastQueuedDraftKeyRef.current = ''
+        if (editRowRef.current === i) {
+          setEditRow(null)
+          setDraft(null)
+          lastQueuedDraftKeyRef.current = ''
+        }
       }
     } catch {
       // 父層已顯示錯誤
@@ -203,11 +209,12 @@ export default function SceneTable({
     return next
   }
 
-  function queueAutoSave(i: number, nextDraft: SceneRow) {
-    const nextKey = `${i}:${JSON.stringify(nextDraft)}`
+  function queueAutoSave(i: number, nextDraft: SceneRow, opts: { close?: boolean } = {}) {
+    const close = opts.close === true
+    const nextKey = `${close ? 'close' : 'stay'}:${i}:${JSON.stringify(nextDraft)}`
     if (lastQueuedDraftKeyRef.current === nextKey) return autoSaveQueueRef.current
     lastQueuedDraftKeyRef.current = nextKey
-    const run = async () => saveEdit(i, { close: false, nextDraft })
+    const run = async () => saveEdit(i, { close: close ? true : false, nextDraft })
     const nextSave = autoSaveQueueRef.current.catch(() => {}).then(run)
     autoSaveQueueRef.current = nextSave
     return nextSave
@@ -539,7 +546,11 @@ export default function SceneTable({
                 const isSelected = selectedScenes.has(row.scene)
 
                 return (
-                  <tr key={i} style={{ background: rawIdx % 2 === 0 ? 'var(--card-bg)' : '#161616' }}>
+                  <tr
+                    key={i}
+                    data-scene-editing={isEditing ? 'true' : undefined}
+                    style={{ background: rawIdx % 2 === 0 ? 'var(--card-bg)' : '#161616' }}
+                  >
                     <td
                       className="no-print"
                       style={{ ...s.td, textAlign: 'center', width: 36 }}
@@ -893,6 +904,7 @@ function MobileView(p: MobileProps) {
             else p.setNewScene(n => ({ ...n, ...patch }))
           }}
           onAutoSave={editing ? patch => p.onAutoSaveEdit(p.editRow!, patch) : undefined}
+          saveOnBackdrop={editing}
           onSave={async () => {
             if (editing) await p.onSaveEdit(p.editRow!)
             else await p.onSaveNew()
@@ -918,20 +930,31 @@ interface SheetProps {
   value: SceneRow
   onChange: (patch: Partial<SceneRow>) => void
   onAutoSave?: (patch: Partial<SceneRow>) => void
+  saveOnBackdrop?: boolean
   onSave: () => Promise<void>
   onCancel: () => void
   onDelete?: () => void | Promise<void>
 }
 
-function SceneFormSheet({ title, saving, value, onChange, onAutoSave, onSave, onCancel, onDelete }: SheetProps) {
+function SceneFormSheet({
+  title, saving, value, onChange, onAutoSave, saveOnBackdrop, onSave, onCancel, onDelete,
+}: SheetProps) {
   const canSave = !!value.scene && !saving
   function changeAndSave(patch: Partial<SceneRow>) {
     onChange(patch)
     onAutoSave?.(patch)
   }
 
+  async function closeFromBackdrop() {
+    if (saveOnBackdrop && canSave) {
+      await onSave()
+    } else {
+      onCancel()
+    }
+  }
+
   return (
-    <div className="bottom-sheet-backdrop no-print" onClick={onCancel}>
+    <div className="bottom-sheet-backdrop no-print" onClick={closeFromBackdrop}>
       <div className="bottom-sheet" onClick={e => e.stopPropagation()}>
         <div className="bottom-sheet-handle" />
         <div className="bottom-sheet-header">
