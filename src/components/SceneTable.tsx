@@ -111,6 +111,7 @@ export default function SceneTable({
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const draftRef = useRef<SceneRow | null>(null)
   const autoSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const lastQueuedDraftKeyRef = useRef('')
 
   useEffect(() => { draftRef.current = draft }, [draft])
 
@@ -123,6 +124,7 @@ export default function SceneTable({
     setShowBatchMenu(false)
     setBatchDate('')
     setShowMobileMenu(false)
+    lastQueuedDraftKeyRef.current = ''
   }, [resetKey])
 
   useEffect(() => {
@@ -148,16 +150,29 @@ export default function SceneTable({
     return () => { document.body.style.overflow = prev }
   }, [isMobile, editRow, showAddRow])
 
+  useEffect(() => {
+    if (editRow === null) return
+    function onAnyMouseDown() {
+      const currentDraft = draftRef.current
+      if (!currentDraft || editRow === null) return
+      queueAutoSave(editRow, currentDraft)
+    }
+    document.addEventListener('mousedown', onAnyMouseDown)
+    return () => document.removeEventListener('mousedown', onAnyMouseDown)
+  }, [editRow])
+
   function startEdit(i: number) {
     const base = scenes[i]
     setEditRow(i)
     setDraft({ ...base, roughcutDate: base.roughcutDate || todayYMD() })
     setShowAddRow(false)
+    lastQueuedDraftKeyRef.current = ''
   }
 
   function cancelEdit() {
     setEditRow(null)
     setDraft(null)
+    lastQueuedDraftKeyRef.current = ''
   }
 
   async function saveEdit(i: number, opts: { close?: boolean; nextDraft?: SceneRow } = {}) {
@@ -168,6 +183,7 @@ export default function SceneTable({
       if (opts.close !== false) {
         setEditRow(null)
         setDraft(null)
+        lastQueuedDraftKeyRef.current = ''
       }
     } catch {
       // 父層已顯示錯誤
@@ -188,6 +204,9 @@ export default function SceneTable({
   }
 
   function queueAutoSave(i: number, nextDraft: SceneRow) {
+    const nextKey = `${i}:${JSON.stringify(nextDraft)}`
+    if (lastQueuedDraftKeyRef.current === nextKey) return autoSaveQueueRef.current
+    lastQueuedDraftKeyRef.current = nextKey
     const run = async () => saveEdit(i, { close: false, nextDraft })
     const nextSave = autoSaveQueueRef.current.catch(() => {}).then(run)
     autoSaveQueueRef.current = nextSave
