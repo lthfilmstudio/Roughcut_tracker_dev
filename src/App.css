@@ -451,6 +451,7 @@
   padding: 10px 14px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   font-size: 13px;
   border-radius: 8px;
@@ -465,6 +466,15 @@
   padding: 6px 10px;
   font-size: 12px;
   cursor: pointer;
+}
+
+.mobile-batch-date {
+  background: #0f2038;
+  border: 1px solid #60a5fa;
+  color: #e0ecff;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
 }
 
 .mobile-batch-bar .mobile-batch-spacer { flex: 1; }

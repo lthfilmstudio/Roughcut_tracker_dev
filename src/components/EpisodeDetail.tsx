@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { getDataService } from '../services'
 import type { SceneRow } from '../types'
 import {
-  secsToHMS, normalizeScene, autoFillRoughcutStatus, computeEpisodeStats,
+  secsToHMS, normalizeScene, autoFillRoughcutStatus, computeEpisodeStats, formatDate,
   finecutMetaKey,
 } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
@@ -142,6 +142,29 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
       syncSummary(updated)
     } catch (e: unknown) {
       alert('批次更新失敗：' + (e instanceof Error ? e.message : String(e)))
+      throw e
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleBatchUpdateDate(rowIndices: number[], newDate: string) {
+    setSaving(true)
+    try {
+      const cleanedDate = newDate ? formatDate(newDate) : ''
+      const updates = rowIndices.map(idx => ({
+        rowIndex: idx,
+        scene: { ...scenes[idx], roughcutDate: cleanedDate },
+      }))
+      await getDataService(token).batchUpdateScenes(project, episode, updates)
+      const targetSet = new Set(rowIndices)
+      const updated = scenes.map((r, i) =>
+        targetSet.has(i) ? { ...r, roughcutDate: cleanedDate } : r,
+      )
+      cache.setEpisodeScenes(episode, () => updated)
+      syncSummary(updated)
+    } catch (e: unknown) {
+      alert('批次更新日期失敗：' + (e instanceof Error ? e.message : String(e)))
       throw e
     } finally {
       setSaving(false)
@@ -347,6 +370,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
               onAppendScene={handleAppendScene}
               onDeleteScene={handleDeleteScene}
               onBatchUpdateStatus={handleBatchUpdateStatus}
+              onBatchUpdateDate={handleBatchUpdateDate}
               onBatchDeleteScenes={handleBatchDeleteScenes}
               onOpenBatchImport={() => setShowBatchImport(true)}
               onOpenExportMD={() => setShowExportMD(true)}

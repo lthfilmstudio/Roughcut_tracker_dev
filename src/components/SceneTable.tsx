@@ -82,6 +82,7 @@ interface Props {
   onAppendScene: (scene: SceneRow) => Promise<void>
   onDeleteScene: (rowIndex: number) => Promise<void>
   onBatchUpdateStatus: (rowIndices: number[], newStatus: string) => Promise<void>
+  onBatchUpdateDate: (rowIndices: number[], newDate: string) => Promise<void>
   onBatchDeleteScenes: (rowIndices: number[]) => Promise<void>
   onOpenBatchImport: () => void
   onOpenExportMD: () => void
@@ -92,7 +93,7 @@ interface Props {
 export default function SceneTable({
   resetKey, scenes, saving,
   onUpdateScene, onAppendScene, onDeleteScene,
-  onBatchUpdateStatus, onBatchDeleteScenes,
+  onBatchUpdateStatus, onBatchUpdateDate, onBatchDeleteScenes,
   onOpenBatchImport, onOpenExportMD, onOpenExportCSV, onOpenExportPDF,
 }: Props) {
   const isMobile = useIsMobile()
@@ -104,10 +105,12 @@ export default function SceneTable({
   const [newScene, setNewScene] = useState<SceneRow>(EMPTY_SCENE)
   const [selectedScenes, setSelectedScenes] = useState<Set<string>>(new Set())
   const [showBatchMenu, setShowBatchMenu] = useState(false)
+  const [batchDate, setBatchDate] = useState('')
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const batchMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const draftRef = useRef<SceneRow | null>(null)
+  const autoSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => { draftRef.current = draft }, [draft])
 
@@ -118,6 +121,7 @@ export default function SceneTable({
     setSearch('')
     setSelectedScenes(new Set())
     setShowBatchMenu(false)
+    setBatchDate('')
     setShowMobileMenu(false)
   }, [resetKey])
 
@@ -156,16 +160,44 @@ export default function SceneTable({
     setDraft(null)
   }
 
-  async function saveEdit(i: number) {
-    const currentDraft = draftRef.current
+  async function saveEdit(i: number, opts: { close?: boolean; nextDraft?: SceneRow } = {}) {
+    const currentDraft = opts.nextDraft ?? draftRef.current
     if (!currentDraft) return
     try {
       await onUpdateScene(i, currentDraft)
-      setEditRow(null)
-      setDraft(null)
+      if (opts.close !== false) {
+        setEditRow(null)
+        setDraft(null)
+      }
     } catch {
       // 父層已顯示錯誤
     }
+  }
+
+  function setDraftAndRef(next: SceneRow) {
+    draftRef.current = next
+    setDraft(next)
+  }
+
+  function patchDraft(patch: Partial<SceneRow>): SceneRow | null {
+    const current = draftRef.current
+    if (!current) return null
+    const next = { ...current, ...patch }
+    setDraftAndRef(next)
+    return next
+  }
+
+  function queueAutoSave(i: number, nextDraft: SceneRow) {
+    const run = async () => saveEdit(i, { close: false, nextDraft })
+    const nextSave = autoSaveQueueRef.current.catch(() => {}).then(run)
+    autoSaveQueueRef.current = nextSave
+    return nextSave
+  }
+
+  function autosaveDraft(i: number, patch: Partial<SceneRow>) {
+    const next = patchDraft(patch)
+    if (!next) return
+    void queueAutoSave(i, next)
   }
 
   async function saveNew() {
@@ -275,6 +307,23 @@ export default function SceneTable({
     }
   }
 
+  async function handleBatchDate(newDate: string) {
+    const targets = scenes
+      .map((r, i) => ({ row: r, idx: i }))
+      .filter(x => selectedScenes.has(x.row.scene))
+    if (targets.length === 0) return
+    const cleanedDate = newDate ? formatDate(newDate) : ''
+    const dateLabel = cleanedDate || '清除日期'
+    if (!confirm(`確定將 ${targets.length} 個場次改為 ${dateLabel}？`)) return
+    try {
+      await onBatchUpdateDate(targets.map(t => t.idx), cleanedDate)
+      setSelectedScenes(new Set())
+      setBatchDate('')
+    } catch {
+      // 父層已顯示錯誤
+    }
+  }
+
   async function handleBatchDelete() {
     const targets = scenes
       .map((r, i) => ({ row: r, idx: i }))
@@ -307,10 +356,13 @@ export default function SceneTable({
         search={search}
         setSearch={setSearch}
         selectedCount={selectedCount}
+        batchDate={batchDate}
+        setBatchDate={setBatchDate}
         onStartEdit={(i) => startEdit(i)}
         onOpenAdd={openAdd}
         onClearSelection={() => setSelectedScenes(new Set())}
         onBatchStatus={handleBatchStatus}
+        onBatchDate={handleBatchDate}
         onBatchDelete={handleBatchDelete}
         saving={saving}
         showMobileMenu={showMobileMenu}
@@ -323,6 +375,7 @@ export default function SceneTable({
         editRow={editRow}
         draft={draft}
         setDraft={setDraft}
+        onAutoSaveEdit={autosaveDraft}
         onSaveEdit={saveEdit}
         onCancelEdit={cancelEdit}
         onDeleteEdit={handleDelete}
@@ -384,6 +437,29 @@ export default function SceneTable({
                     ))}
                   </div>
                 )}
+              </div>
+              <div style={s.batchDateWrap}>
+                <input
+                  style={s.batchDateInput}
+                  type="date"
+                  value={ymdToIso(batchDate)}
+                  onChange={e => setBatchDate(isoToYmd(e.target.value))}
+                  disabled={saving}
+                />
+                <button
+                  style={s.batchDateBtn}
+                  onClick={() => handleBatchDate(batchDate)}
+                  disabled={!batchDate || saving}
+                >
+                  批次修改日期（{selectedCount}）
+                </button>
+                <button
+                  style={s.batchDateClearBtn}
+                  onClick={() => handleBatchDate('')}
+                  disabled={saving}
+                >
+                  清除日期
+                </button>
               </div>
               <button
                 style={s.batchDeleteBtn}
@@ -462,33 +538,35 @@ export default function SceneTable({
                       <>
                         <td style={s.td}>
                           <input style={s.input} value={draft?.scene ?? ''}
-                            onChange={e => setDraft(d => d ? { ...d, scene: e.target.value } : d)}
+                            onChange={e => patchDraft({ scene: e.target.value })}
+                            onBlur={e => autosaveDraft(i, { scene: e.target.value })}
                             onKeyDown={e => editKeyDown(e, i)}
                           />
                         </td>
                         <td style={s.td}>
                           <input style={s.input} value={draft?.roughcutLength ?? ''}
-                            onChange={e => setDraft(d => d ? { ...d, roughcutLength: e.target.value } : d)}
-                            onBlur={e => setDraft(d => d ? { ...d, roughcutLength: formatRoughcutLength(e.target.value) } : d)}
+                            onChange={e => patchDraft({ roughcutLength: e.target.value })}
+                            onBlur={e => autosaveDraft(i, { roughcutLength: formatRoughcutLength(e.target.value) })}
                             onKeyDown={e => editKeyDown(e, i)}
                           />
                         </td>
                         <td style={s.td}>
                           <input style={s.input} value={draft?.pages ?? ''}
-                            onChange={e => setDraft(d => d ? { ...d, pages: e.target.value } : d)}
+                            onChange={e => patchDraft({ pages: e.target.value })}
+                            onBlur={e => autosaveDraft(i, { pages: e.target.value })}
                             onKeyDown={e => editKeyDown(e, i)}
                           />
                         </td>
                         <td style={s.td}>
                           <input style={s.input} placeholder="YYYY/MM/DD" value={draft?.roughcutDate ?? ''}
-                            onChange={e => setDraft(d => d ? { ...d, roughcutDate: e.target.value } : d)}
-                            onBlur={e => setDraft(d => d ? { ...d, roughcutDate: formatDate(e.target.value) } : d)}
+                            onChange={e => patchDraft({ roughcutDate: e.target.value })}
+                            onBlur={e => autosaveDraft(i, { roughcutDate: formatDate(e.target.value) })}
                             onKeyDown={e => editKeyDown(e, i)}
                           />
                         </td>
                         <td style={s.td}>
                           <select style={s.input} value={draft?.status ?? ''}
-                            onChange={e => setDraft(d => d ? { ...d, status: e.target.value as Status } : d)}
+                            onChange={e => autosaveDraft(i, { status: e.target.value as Status })}
                             onKeyDown={e => editKeyDown(e, i)}
                           >
                             <option value="">—</option>
@@ -498,12 +576,13 @@ export default function SceneTable({
                         <td style={{ ...s.td, textAlign: 'center' }}>
                           <input type="checkbox"
                             checked={draft?.missingShots === 'Y'}
-                            onChange={e => setDraft(d => d ? { ...d, missingShots: e.target.checked ? 'Y' : '' } : d)}
+                            onChange={e => autosaveDraft(i, { missingShots: e.target.checked ? 'Y' : '' })}
                             style={{ accentColor: '#FF9800', width: 14, height: 14 }} />
                         </td>
                         <td style={s.td}>
                           <input style={s.input} value={draft?.notes ?? ''}
-                            onChange={e => setDraft(d => d ? { ...d, notes: e.target.value } : d)}
+                            onChange={e => patchDraft({ notes: e.target.value })}
+                            onBlur={e => autosaveDraft(i, { notes: e.target.value })}
                             onKeyDown={e => editKeyDown(e, i)}
                           />
                         </td>
@@ -623,10 +702,13 @@ interface MobileProps {
   search: string
   setSearch: (s: string) => void
   selectedCount: number
+  batchDate: string
+  setBatchDate: (s: string) => void
   onStartEdit: (i: number) => void
   onOpenAdd: () => void
   onClearSelection: () => void
   onBatchStatus: (value: string) => void
+  onBatchDate: (value: string) => void
   onBatchDelete: () => void
   saving: boolean
   showMobileMenu: boolean
@@ -639,6 +721,7 @@ interface MobileProps {
   editRow: number | null
   draft: SceneRow | null
   setDraft: React.Dispatch<React.SetStateAction<SceneRow | null>>
+  onAutoSaveEdit: (i: number, patch: Partial<SceneRow>) => void
   onSaveEdit: (i: number) => Promise<void>
   onCancelEdit: () => void
   onDeleteEdit: (i: number) => Promise<void>
@@ -702,6 +785,15 @@ function MobileView(p: MobileProps) {
           <span className="mobile-batch-spacer" />
           <button onClick={() => p.onBatchStatus('已初剪')} disabled={p.saving}>→ 已初剪</button>
           <button onClick={() => p.onBatchStatus('已精剪')} disabled={p.saving}>→ 已精剪</button>
+          <input
+            className="mobile-batch-date"
+            type="date"
+            value={ymdToIso(p.batchDate)}
+            onChange={e => p.setBatchDate(isoToYmd(e.target.value))}
+            disabled={p.saving}
+          />
+          <button onClick={() => p.onBatchDate(p.batchDate)} disabled={!p.batchDate || p.saving}>改日期</button>
+          <button onClick={() => p.onBatchDate('')} disabled={p.saving}>清日期</button>
           <button onClick={p.onBatchDelete} disabled={p.saving} style={{ borderColor: '#f87171', color: '#fca5a5' }}>刪除</button>
           <button onClick={p.onClearSelection}>取消</button>
         </div>
@@ -781,6 +873,7 @@ function MobileView(p: MobileProps) {
             if (editing) p.setDraft(d => d ? { ...d, ...patch } : d)
             else p.setNewScene(n => ({ ...n, ...patch }))
           }}
+          onAutoSave={editing ? patch => p.onAutoSaveEdit(p.editRow!, patch) : undefined}
           onSave={async () => {
             if (editing) await p.onSaveEdit(p.editRow!)
             else await p.onSaveNew()
@@ -805,13 +898,18 @@ interface SheetProps {
   saving: boolean
   value: SceneRow
   onChange: (patch: Partial<SceneRow>) => void
+  onAutoSave?: (patch: Partial<SceneRow>) => void
   onSave: () => Promise<void>
   onCancel: () => void
   onDelete?: () => void | Promise<void>
 }
 
-function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDelete }: SheetProps) {
+function SceneFormSheet({ title, saving, value, onChange, onAutoSave, onSave, onCancel, onDelete }: SheetProps) {
   const canSave = !!value.scene && !saving
+  function changeAndSave(patch: Partial<SceneRow>) {
+    onChange(patch)
+    onAutoSave?.(patch)
+  }
 
   return (
     <div className="bottom-sheet-backdrop no-print" onClick={onCancel}>
@@ -829,6 +927,7 @@ function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDe
               className="form-field-input"
               value={value.scene}
               onChange={e => onChange({ scene: e.target.value })}
+              onBlur={e => onAutoSave?.({ scene: e.target.value })}
               placeholder="例：12 或 12A"
               autoFocus
             />
@@ -842,7 +941,7 @@ function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDe
               inputMode="numeric"
               placeholder="直接打 6 位數字，例 013045 → 01:30:45"
               onChange={e => onChange({ roughcutLength: e.target.value })}
-              onBlur={e => onChange({ roughcutLength: formatRoughcutLength(e.target.value) })}
+              onBlur={e => changeAndSave({ roughcutLength: formatRoughcutLength(e.target.value) })}
             />
           </div>
 
@@ -854,6 +953,7 @@ function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDe
               inputMode="decimal"
               placeholder="例：2.5"
               onChange={e => onChange({ pages: e.target.value })}
+              onBlur={e => onAutoSave?.({ pages: e.target.value })}
             />
           </div>
 
@@ -863,7 +963,7 @@ function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDe
               className="form-field-input"
               type="date"
               value={ymdToIso(value.roughcutDate)}
-              onChange={e => onChange({ roughcutDate: isoToYmd(e.target.value) })}
+              onChange={e => changeAndSave({ roughcutDate: isoToYmd(e.target.value) })}
             />
           </div>
 
@@ -872,7 +972,7 @@ function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDe
             <select
               className="form-field-select"
               value={value.status}
-              onChange={e => onChange({ status: e.target.value })}
+              onChange={e => changeAndSave({ status: e.target.value })}
             >
               <option value="">—</option>
               {FORM_STATUS_LIST.map(v => <option key={v} value={v}>{v}</option>)}
@@ -883,7 +983,7 @@ function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDe
             <input
               type="checkbox"
               checked={value.missingShots === 'Y'}
-              onChange={e => onChange({ missingShots: e.target.checked ? 'Y' : '' })}
+              onChange={e => changeAndSave({ missingShots: e.target.checked ? 'Y' : '' })}
             />
             <span>尚缺鏡頭</span>
           </label>
@@ -895,6 +995,7 @@ function SceneFormSheet({ title, saving, value, onChange, onSave, onCancel, onDe
               value={value.notes ?? ''}
               rows={3}
               onChange={e => onChange({ notes: e.target.value })}
+              onBlur={e => onAutoSave?.({ notes: e.target.value })}
               style={{ resize: 'vertical', minHeight: 60, fontFamily: 'inherit' }}
             />
           </div>
@@ -952,6 +1053,19 @@ const s: Record<string, React.CSSProperties> = {
   batchBtn: {
     padding: '6px 14px', background: '#1e3a5f', color: '#60a5fa',
     border: '1px solid #2a5082', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+  },
+  batchDateWrap: { display: 'flex', alignItems: 'center', gap: 6, marginLeft: 6 },
+  batchDateInput: {
+    background: '#111', border: '1px solid #2a5082', borderRadius: 20,
+    color: 'var(--text-primary)', padding: '5px 10px', fontSize: 12,
+  },
+  batchDateBtn: {
+    padding: '6px 14px', background: '#1e3a5f', color: '#cfe1ff',
+    border: '1px solid #2a5082', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+  },
+  batchDateClearBtn: {
+    padding: '6px 12px', background: 'transparent', color: '#9ca3af',
+    border: '1px solid #444', borderRadius: 20, fontSize: 12, cursor: 'pointer',
   },
   batchDeleteBtn: {
     padding: '6px 14px', marginLeft: 6, background: 'transparent', color: '#f87171',
