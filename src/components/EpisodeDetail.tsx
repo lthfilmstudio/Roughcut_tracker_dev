@@ -206,7 +206,8 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
   const printDate = new Date().toLocaleDateString('zh-TW', {
     timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
   })
-  const combinedPct = stats.validScenes > 0 ? (stats.roughcutScenes + stats.finecutScenes) / stats.validScenes : 0
+  const roughcutProgressScenes = stats.roughcutScenes + stats.finecutScenes
+  const combinedPct = stats.validScenes > 0 ? roughcutProgressScenes / stats.validScenes : 0
 
   const finecutKey = finecutMetaKey(episode)
   const finecutTotalRaw = cache.meta[finecutKey] ?? ''
@@ -309,7 +310,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
                 <tr>
                   <td>總計</td>
                   <td>—</td>
-                  <td>{stats.roughcutScenes + stats.finecutScenes} / {stats.validScenes}</td>
+                  <td>{roughcutProgressScenes} / {stats.validScenes}</td>
                   <td>{(combinedPct * 100).toFixed(1)}%</td>
                 </tr>
                 <tr>
@@ -328,7 +329,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
                     {stats.roughcutTotalSecs > 0 ? secsToHMS(stats.roughcutTotalSecs) : '—'}
                   </p>
                   <div style={{ ...s.statRight, justifyContent: 'flex-end' }}>
-                    <span style={s.statSubValue}>已初剪 {stats.roughcutScenes} / {stats.validScenes} 場</span>
+                    <span style={s.statSubValue}>已初剪 {roughcutProgressScenes} / {stats.validScenes} 場</span>
                   </div>
                 </div>
               </div>
@@ -349,7 +350,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
                       <div style={s.barTrack}>
                         <div style={{ ...s.barFill, width: `${Math.min(combinedPct * 100, 100)}%`, background: '#E5E5E5' }} />
                       </div>
-                      <span style={s.statSubValue}>{stats.roughcutScenes + stats.finecutScenes} / {stats.validScenes} 場</span>
+                      <span style={s.statSubValue}>{roughcutProgressScenes} / {stats.validScenes} 場</span>
                     </div>
                   </div>
                 </div>
