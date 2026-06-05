@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { SceneRow } from '../types'
 
 const EMPTY_SCENE: SceneRow = {
-  scene: '', roughcutLength: '', pages: '', roughcutDate: '', status: '', missingShots: '', notes: '',
+  scene: '', roughcutLength: '', pages: '', roughcutDate: '', status: '', missingShots: '', outline: '', notes: '',
 }
 
 interface Props {

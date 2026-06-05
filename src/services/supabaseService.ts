@@ -44,6 +44,7 @@ interface DbScene {
   roughcut_date: string | null   // 'YYYY-MM-DD'
   status: string | null          // '已初剪' | '已精剪' | '整場刪除' | null
   missing_shots: boolean
+  outline: string | null
   notes: string | null
   row_order: number
 }
@@ -58,6 +59,7 @@ function dbToSceneRow(s: DbScene): SceneRow {
     roughcutDate: s.roughcut_date ? s.roughcut_date.replaceAll('-', '/') : '',
     status: s.status ?? '',
     missingShots: s.missing_shots ? 'true' : '',
+    outline: s.outline ?? '',
     notes: s.notes ?? '',
   }
 }
@@ -71,6 +73,7 @@ function sceneRowToDb(scene: SceneRow, episodeId: string, rowOrder: number): Omi
     roughcut_date: ymdHyphen(scene.roughcutDate),
     status: toValidStatus(scene.status),
     missing_shots: !!scene.missingShots.trim() && scene.missingShots !== '否',
+    outline: scene.outline.trim() || null,
     notes: scene.notes.trim() || null,
     row_order: rowOrder,
   }

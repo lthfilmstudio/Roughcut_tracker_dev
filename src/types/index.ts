@@ -20,6 +20,7 @@ export interface SceneRow {
   roughcutDate: string
   status: string
   missingShots: string
+  outline: string
   notes: string
 }
 

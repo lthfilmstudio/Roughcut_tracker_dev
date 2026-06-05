@@ -25,7 +25,7 @@ const FILTERS = [
 
 const EMPTY: SceneRow = {
   scene: '', roughcutLength: '', pages: '',
-  roughcutDate: '', status: '', missingShots: '', notes: '',
+  roughcutDate: '', status: '', missingShots: '', outline: '', notes: '',
 }
 
 interface Props {
@@ -267,6 +267,7 @@ export default function QuickPage({ token, cache, onExit, exitLabel = '← 返�
         )}
         {filtered.map(({ r, i }) => {
           const color = STATUS_COLOR[r.status] ?? '#555'
+          const hasOutline = r.outline && r.outline.trim() !== ''
           const hasNote = r.notes && r.notes.trim() !== ''
           const hasMissing = r.missingShots === 'Y'
           return (
@@ -281,8 +282,12 @@ export default function QuickPage({ token, cache, onExit, exitLabel = '← 返�
                 <div style={s.row2}>
                   <span>長度 {r.roughcutLength || '—'}</span>
                   <span>頁 {r.pages || '—'}</span>
+                  {hasOutline && <span style={s.outlineFlag}>大綱</span>}
                   {hasNote && <span style={s.noteFlag}>備註</span>}
                 </div>
+                {hasOutline && (
+                  <div style={s.outlineText}>{r.outline}</div>
+                )}
               </div>
             </button>
           )
@@ -519,6 +524,16 @@ function SheetEditor({ value, isNew, saving, onDraft, onStatusChange, onToggleMi
           </div>
 
           <div style={s.field}>
+            <label style={s.label}>大綱</label>
+            <textarea
+              style={{ ...s.input, minHeight: 82, resize: 'vertical' }}
+              placeholder="順場表大綱"
+              value={value.outline}
+              onChange={e => patch({ outline: e.target.value })}
+            />
+          </div>
+
+          <div style={s.field}>
             <label style={s.label}>備註</label>
             <textarea
               style={{ ...s.input, minHeight: 70, resize: 'none' }}
@@ -612,6 +627,11 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', gap: 10, flexWrap: 'wrap',
   },
   noteFlag: { color: '#60a5fa', fontSize: 11, padding: '1px 6px', background: '#1e2a3a', borderRadius: 4 },
+  outlineFlag: { color: '#d4d4d4', fontSize: 11, padding: '1px 6px', background: '#2a2a2a', borderRadius: 4 },
+  outlineText: {
+    color: 'var(--text-secondary)', fontSize: 12, marginTop: 4,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
   fab: {
     position: 'fixed', right: 18, bottom: 24, width: 56, height: 56, borderRadius: '50%',
     background: '#FFC107', color: '#111', border: 'none', fontSize: 28, fontWeight: 600,

@@ -31,6 +31,7 @@ type Scene = {
   roughcut_date: string | null
   status: string | null
   missing_shots: boolean
+  outline: string | null
   notes: string | null
   row_order: number
 }
@@ -129,7 +130,7 @@ function SupabasePreviewInner() {
     setError(null)
     client
       .from('scenes')
-      .select('id, scene_key, roughcut_length_secs, pages, roughcut_date, status, missing_shots, notes, row_order')
+      .select('id, scene_key, roughcut_length_secs, pages, roughcut_date, status, missing_shots, outline, notes, row_order')
       .eq('episode_id', selectedEpisodeId)
       .order('row_order')
       .then(({ data, error }) => {
@@ -248,6 +249,7 @@ function SupabasePreviewInner() {
                   <th style={thStyle}>日期</th>
                   <th style={thStyle}>狀態</th>
                   <th style={thStyle}>尚缺</th>
+                  <th style={thStyle}>大綱</th>
                   <th style={thStyle}>備註</th>
                 </tr>
               </thead>
@@ -261,6 +263,7 @@ function SupabasePreviewInner() {
                     <td style={tdStyle}>{s.roughcut_date ?? '—'}</td>
                     <td style={tdStyle}>{s.status ?? ''}</td>
                     <td style={tdStyle}>{s.missing_shots ? '⚠' : ''}</td>
+                    <td style={{ ...tdStyle, color: '#666', fontSize: 12, maxWidth: 280 }}>{s.outline ?? ''}</td>
                     <td style={{ ...tdStyle, color: '#666', fontSize: 12 }}>{s.notes ?? ''}</td>
                   </tr>
                 ))}

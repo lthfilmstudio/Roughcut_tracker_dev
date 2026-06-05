@@ -14,6 +14,7 @@ interface ExportOptions {
   date: boolean
   status: boolean
   missingShots: boolean
+  outline: boolean
   notes: boolean
 }
 
@@ -24,6 +25,7 @@ const DEFAULT_OPTIONS: ExportOptions = {
   date: false,
   status: true,
   missingShots: false,
+  outline: true,
   notes: false,
 }
 
@@ -54,6 +56,7 @@ export default function ExportCSV({ episode, scenes, onClose }: Props) {
       { key: 'roughcutDate', label: '初剪日期', enabled: opts.date },
       { key: 'status', label: '狀態', enabled: opts.status },
       { key: 'missingShots', label: '缺鏡', enabled: opts.missingShots },
+      { key: 'outline', label: '大綱', enabled: opts.outline },
       { key: 'notes', label: '備註', enabled: opts.notes },
     ]
     const cols = allCols.filter(c => c.enabled)
@@ -86,6 +89,7 @@ export default function ExportCSV({ episode, scenes, onClose }: Props) {
     { key: 'date', label: '初剪日期' },
     { key: 'status', label: '狀態' },
     { key: 'missingShots', label: '缺鏡' },
+    { key: 'outline', label: '大綱' },
     { key: 'notes', label: '備註' },
   ]
 

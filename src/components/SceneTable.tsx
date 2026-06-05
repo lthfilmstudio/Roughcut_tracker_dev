@@ -31,7 +31,7 @@ const FILTERS: { key: string; color?: string }[] = [
 
 const EMPTY_SCENE: SceneRow = {
   scene: '', roughcutLength: '', pages: '',
-  roughcutDate: '', status: '', missingShots: '', notes: '',
+  roughcutDate: '', status: '', missingShots: '', outline: '', notes: '',
 }
 
 const BATCH_ACTIONS: { label: string; value: string }[] = [
@@ -48,6 +48,7 @@ export const EP_COL_DEFS: { key: string; label: string }[] = [
   { key: 'date', label: '日期' },
   { key: 'status', label: '狀態' },
   { key: 'missingShots', label: '缺鏡' },
+  { key: 'outline', label: '大綱' },
   { key: 'notes', label: '備註' },
 ]
 
@@ -293,6 +294,7 @@ export default function SceneTable({
     if (q) {
       result = result.filter(r =>
         r.scene.toLowerCase().includes(q) ||
+        (r.outline || '').toLowerCase().includes(q) ||
         (r.notes || '').toLowerCase().includes(q),
       )
     }
@@ -432,7 +434,7 @@ export default function SceneTable({
           <div style={s.searchBox}>
             <input
               style={s.searchInput}
-              placeholder="搜尋場次號或備註⋯"
+              placeholder="搜尋場次號、大綱或備註⋯"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -610,6 +612,13 @@ export default function SceneTable({
                             style={{ accentColor: '#FF9800', width: 14, height: 14 }} />
                         </td>
                         <td style={s.td}>
+                          <textarea style={{ ...s.input, minWidth: 220, minHeight: 54, resize: 'vertical', whiteSpace: 'normal' }}
+                            value={draft?.outline ?? ''}
+                            onChange={e => patchDraft({ outline: e.target.value })}
+                            onBlur={e => autosaveDraft(i, { outline: e.target.value })}
+                          />
+                        </td>
+                        <td style={s.td}>
                           <input style={s.input} value={draft?.notes ?? ''}
                             onChange={e => patchDraft({ notes: e.target.value })}
                             onBlur={e => autosaveDraft(i, { notes: e.target.value })}
@@ -642,6 +651,7 @@ export default function SceneTable({
                           }} />
                           <span className="print-only">{data.missingShots === 'Y' ? 'Y' : '—'}</span>
                         </td>
+                        <td className="pdf-col-outline" style={{ ...s.td, color: 'var(--text-secondary)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.outline || '—'}</td>
                         <td className="pdf-col-notes" style={{ ...s.td, color: 'var(--text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.notes || '—'}</td>
                         <td style={s.td} className="no-print">
                           <button style={s.editBtn} onClick={() => startEdit(i)}>編輯</button>
@@ -696,6 +706,11 @@ export default function SceneTable({
                       onChange={e => setNewScene(n => ({ ...n, missingShots: e.target.checked ? 'Y' : '' }))}
                       onKeyDown={newKeyDown}
                       style={{ accentColor: '#FF9800', width: 14, height: 14 }} />
+                  </td>
+                  <td style={s.td}>
+                    <input style={{ ...s.input, minWidth: 220 }} value={newScene.outline}
+                      onChange={e => setNewScene(n => ({ ...n, outline: e.target.value }))}
+                      onKeyDown={newKeyDown} />
                   </td>
                   <td style={s.td}>
                     <input style={s.input} value={newScene.notes}
@@ -773,7 +788,7 @@ function MobileView(p: MobileProps) {
         <div style={m.searchBox}>
           <input
             style={m.searchInput}
-            placeholder="搜尋場次號或備註⋯"
+            placeholder="搜尋場次號、大綱或備註⋯"
             value={p.search}
             onChange={e => p.setSearch(e.target.value)}
           />
@@ -874,6 +889,9 @@ function MobileView(p: MobileProps) {
                   <span>頁數 {row.pages || '—'}</span>
                   <span>{row.roughcutDate || '—'}</span>
                 </div>
+                {row.outline && row.outline.trim() !== '' && (
+                  <div className="mobile-card-outline">大綱：{row.outline}</div>
+                )}
                 {(row.missingShots === 'Y' || (row.notes && row.notes.trim() !== '')) && (
                   <div className="mobile-card-flags">
                     {row.missingShots === 'Y' && <span className="mobile-flag mobile-flag-missing">缺鏡</span>}
@@ -1029,6 +1047,18 @@ function SceneFormSheet({
             />
             <span>尚缺鏡頭</span>
           </label>
+
+          <div className="form-field">
+            <label className="form-field-label">大綱</label>
+            <textarea
+              className="form-field-input"
+              value={value.outline ?? ''}
+              rows={3}
+              onChange={e => onChange({ outline: e.target.value })}
+              onBlur={e => onAutoSave?.({ outline: e.target.value })}
+              style={{ resize: 'vertical', minHeight: 72, fontFamily: 'inherit' }}
+            />
+          </div>
 
           <div className="form-field">
             <label className="form-field-label">備註</label>

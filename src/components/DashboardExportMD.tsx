@@ -52,6 +52,7 @@ interface SceneOptions {
   date: boolean
   status: boolean
   missingShots: boolean
+  outline: boolean
   notes: boolean
 }
 
@@ -77,6 +78,7 @@ const DEFAULT_SCENES: SceneOptions = {
   date: false,
   status: true,
   missingShots: false,
+  outline: true,
   notes: true,
 }
 
@@ -174,6 +176,7 @@ export default function DashboardExportMD({
       { key: 'roughcutDate', label: '日期', enabled: sceneOpts.date },
       { key: 'status', label: '狀態', enabled: sceneOpts.status },
       { key: 'missingShots', label: '缺鏡', enabled: sceneOpts.missingShots },
+      { key: 'outline', label: '大綱', enabled: sceneOpts.outline },
       { key: 'notes', label: '備註', enabled: sceneOpts.notes },
     ]
     const cols = allCols.filter(c => c.enabled)
@@ -233,6 +236,7 @@ export default function DashboardExportMD({
     { key: 'date', label: '日期' },
     { key: 'status', label: '狀態' },
     { key: 'missingShots', label: '缺鏡' },
+    { key: 'outline', label: '大綱' },
     { key: 'notes', label: '備註' },
   ]
 

@@ -77,6 +77,7 @@ create table scenes (
   roughcut_date         date,
   status                scene_status,             -- null = 空白
   missing_shots         boolean not null default false,
+  outline               text,                     -- 劇本順場表「大綱」
   notes                 text,
   row_order             integer not null,         -- 顯示順序（可手調）
   created_at            timestamptz not null default now(),

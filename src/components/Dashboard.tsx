@@ -17,6 +17,7 @@ const DASH_SCENE_COL_DEFS: { key: string; label: string }[] = [
   { key: 'date', label: '日期' },
   { key: 'status', label: '狀態' },
   { key: 'missingShots', label: '缺鏡' },
+  { key: 'outline', label: '大綱' },
   { key: 'notes', label: '備註' },
 ]
 
@@ -395,6 +396,7 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                               <td className="pdf-col-missingShots" style={{ textAlign: 'center' }}>
                                 {sc.missingShots === 'Y' ? 'Y' : '—'}
                               </td>
+                              <td className="pdf-col-outline">{sc.outline || '—'}</td>
                               <td className="pdf-col-notes">{sc.notes || '—'}</td>
                             </tr>
                           ))}
