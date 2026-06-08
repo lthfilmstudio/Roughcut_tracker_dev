@@ -134,7 +134,9 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
     { totalScenes: 0, validScenes: 0, roughcutScenes: 0, finecutScenes: 0, roughcutSecs: 0, finecutSecs: 0, roughcutTotalSecs: 0, finecutTotalSecs: 0, roughcutPages: 0, finecutPages: 0 },
   )
 
-  const globalRoughcutPct = totals.validScenes > 0 ? totals.roughcutScenes / totals.validScenes : 0
+  const roughcutProgressScenes = totals.roughcutScenes + totals.finecutScenes
+  const roughcutProgressPages = totals.roughcutPages + totals.finecutPages
+  const globalRoughcutPct = totals.validScenes > 0 ? roughcutProgressScenes / totals.validScenes : 0
   const globalFinecutPct = totals.validScenes > 0 ? totals.finecutScenes / totals.validScenes : 0
   const totalCutPages = totals.roughcutPages + totals.finecutPages
   const totalCutSecs = totals.roughcutSecs + totals.finecutSecs
@@ -213,12 +215,12 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                 <tr>
                   <td>總計</td>
                   <td>—</td>
-                  <td>{totals.roughcutScenes + totals.finecutScenes} / {totals.validScenes}</td>
-                  <td>{totals.validScenes > 0 ? (((totals.roughcutScenes + totals.finecutScenes) / totals.validScenes) * 100).toFixed(1) : '0.0'}%</td>
+                  <td>{roughcutProgressScenes} / {totals.validScenes}</td>
+                  <td>{(globalRoughcutPct * 100).toFixed(1)}%</td>
                 </tr>
                 <tr>
                   <td>初剪頁數</td>
-                  <td colSpan={3}>{totals.roughcutPages.toFixed(1)} 頁　・　頁均時長 {globalAvgPageDur}</td>
+                  <td colSpan={3}>{roughcutProgressPages.toFixed(1)} 頁　・　頁均時長 {globalAvgPageDur}</td>
                 </tr>
               </tbody>
             </table>
@@ -238,19 +240,17 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                 </p>
               </div>
               {(() => {
-                const combinedPct = totals.validScenes > 0 ? (totals.roughcutScenes + totals.finecutScenes) / totals.validScenes : 0
-                const combinedCount = totals.roughcutScenes + totals.finecutScenes
                 return (
                   <div style={s.statCard}>
                     <p style={s.statLabel}>總計</p>
                     <div style={s.statRow}>
-                      <p style={s.statValue}>{Math.round(combinedPct * 100)}%</p>
+                      <p style={s.statValue}>{Math.round(globalRoughcutPct * 100)}%</p>
                       <div style={s.statRight}>
                         <div style={s.statBarRow}>
                           <div style={s.barTrack}>
-                            <div style={{ ...s.barFill, width: `${Math.min(combinedPct * 100, 100)}%`, background: '#E5E5E5' }} />
+                            <div style={{ ...s.barFill, width: `${Math.min(globalRoughcutPct * 100, 100)}%`, background: '#E5E5E5' }} />
                           </div>
-                          <span style={s.statSubValue}>{combinedCount} / {totals.validScenes} 場</span>
+                          <span style={s.statSubValue}>{roughcutProgressScenes} / {totals.validScenes} 場</span>
                         </div>
                       </div>
                     </div>
@@ -261,7 +261,7 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                 <p style={s.statLabel}>初剪頁數</p>
                 <div style={s.statRow}>
                   <p style={s.statValue}>
-                    {totals.roughcutPages.toFixed(1)}
+                    {roughcutProgressPages.toFixed(1)}
                     <span style={s.statUnit}>頁</span>
                   </p>
                   <div style={{ ...s.statRight, justifyContent: 'flex-end' }}>
@@ -283,9 +283,11 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
               {eps.map((row) => {
                 const epId = row.episode.toLowerCase().replace(/\s+/g, '')
                 const st = row.stats
-                const combinedPct = st.validScenes > 0
-                  ? (st.roughcutScenes + st.finecutScenes) / st.validScenes
+                const epRoughcutProgressScenes = st.roughcutScenes + st.finecutScenes
+                const epRoughcutPct = st.validScenes > 0
+                  ? epRoughcutProgressScenes / st.validScenes
                   : 0
+                const epRoughcutPages = st.roughcutPages + st.finecutPages
                 return (
                   <div key={row.episode} className="mobile-card" onClick={() => onSelectEpisode(epId)}>
                     <div className="mobile-card-head">
@@ -305,22 +307,22 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                       <div className="mobile-card-progress-row">
                         <span style={{ minWidth: 54 }}>已初剪</span>
                         <div className="mobile-card-progress-bar">
-                          <div className="mobile-card-progress-fill" style={{ width: `${Math.min(st.roughcutPct * 100, 100)}%`, background: '#FFC107' }} />
+                          <div className="mobile-card-progress-fill" style={{ width: `${Math.min(epRoughcutPct * 100, 100)}%`, background: '#FFC107' }} />
                         </div>
-                        <span style={{ minWidth: 50, textAlign: 'right' }}>{(st.roughcutPct * 100).toFixed(1)}%</span>
+                        <span style={{ minWidth: 50, textAlign: 'right' }}>{(epRoughcutPct * 100).toFixed(1)}%</span>
                       </div>
                       <div className="mobile-card-progress-row">
                         <span style={{ minWidth: 54 }}>完成度</span>
                         <div className="mobile-card-progress-bar">
-                          <div className="mobile-card-progress-fill" style={{ width: `${Math.min(combinedPct * 100, 100)}%`, background: '#E5E5E5' }} />
+                          <div className="mobile-card-progress-fill" style={{ width: `${Math.min(epRoughcutPct * 100, 100)}%`, background: '#E5E5E5' }} />
                         </div>
-                        <span style={{ minWidth: 50, textAlign: 'right' }}>{(combinedPct * 100).toFixed(1)}%</span>
+                        <span style={{ minWidth: 50, textAlign: 'right' }}>{(epRoughcutPct * 100).toFixed(1)}%</span>
                       </div>
                     </div>
                     <div className="mobile-card-meta" style={{ fontSize: 11 }}>
                       <span>初剪 {st.roughcutTotalSecs > 0 ? secsToHMS(st.roughcutTotalSecs) : '—'}</span>
                       <span>精剪 {(finecutTotalSecsByEp[row.episode] ?? 0) > 0 ? secsToHMS(finecutTotalSecsByEp[row.episode]) : '—'}</span>
-                      <span>頁數 {st.roughcutPages > 0 ? st.roughcutPages.toFixed(1) : '—'}</span>
+                      <span>頁數 {epRoughcutPages > 0 ? epRoughcutPages.toFixed(1) : '—'}</span>
                     </div>
                   </div>
                 )
@@ -360,12 +362,15 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
               {eps.map((ep, epIdx) => {
                 const epScenes = scenes?.[ep.episode] ?? []
                 const st = ep.stats
+                const epRoughcutPct = st.validScenes > 0
+                  ? (st.roughcutScenes + st.finecutScenes) / st.validScenes
+                  : 0
                 return (
                   <section key={ep.episode} style={epIdx > 0 ? { pageBreakBefore: 'always' } : undefined}>
                     <div className="pdf-allscenes-ep-head">
                       <span className="pdf-allscenes-ep-title">{ep.episode}</span>
                       <span className="pdf-allscenes-ep-meta">
-                        已初剪 {(st.roughcutPct * 100).toFixed(1)}%　・
+                        已初剪 {(epRoughcutPct * 100).toFixed(1)}%　・
                         已精剪 {(st.finecutPct * 100).toFixed(1)}%　・
                         場次 {st.totalScenes}　・
                         初剪 {st.roughcutTotalSecs > 0 ? secsToHMS(st.roughcutTotalSecs) : '—'}　・
@@ -422,9 +427,11 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                   {eps.map((row, i) => {
                     const epId = row.episode.toLowerCase().replace(/\s+/g, '')
                     const st = row.stats
-                    const roughPct = (st.roughcutPct * 100).toFixed(1)
+                    const epRoughcutProgressScenes = st.roughcutScenes + st.finecutScenes
+                    const epRoughcutPages = st.roughcutPages + st.finecutPages
+                    const roughPct = (st.validScenes > 0 ? (epRoughcutProgressScenes / st.validScenes) * 100 : 0).toFixed(1)
                     const finePct = (st.finecutPct * 100).toFixed(1)
-                    const epCutPages = st.roughcutPages + st.finecutPages
+                    const epCutPages = epRoughcutPages
                     const epAvg = epCutPages > 0
                       ? secsToHMS(Math.round((st.roughcutSecs + st.finecutSecs) / epCutPages))
                       : '—'
@@ -451,10 +458,10 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                         <td style={s.td} className="pdf-col-finePct">{finePct}%</td>
                         <td style={s.td} className="pdf-col-roughTotalSecs">{st.roughcutTotalSecs > 0 ? secsToHMS(st.roughcutTotalSecs) : '—'}</td>
                         <td style={s.td} className="pdf-col-fineTotalSecs">{epFineTotalSecs > 0 ? secsToHMS(epFineTotalSecs) : '—'}</td>
-                        <td style={s.td} className="pdf-col-roughScenes">{st.roughcutScenes}</td>
+                        <td style={s.td} className="pdf-col-roughScenes">{epRoughcutProgressScenes}</td>
                         <td style={s.td} className="pdf-col-fineScenes">{st.finecutScenes}</td>
                         <td style={s.td} className="pdf-col-totalScenes">{st.totalScenes}</td>
-                        <td style={s.td} className="pdf-col-roughPages">{st.roughcutPages > 0 ? st.roughcutPages.toFixed(1) : '—'}</td>
+                        <td style={s.td} className="pdf-col-roughPages">{epRoughcutPages > 0 ? epRoughcutPages.toFixed(1) : '—'}</td>
                         <td style={s.td} className="pdf-col-avgPage">{epAvg}</td>
                       </tr>
                     )
@@ -466,10 +473,10 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                     <td className="pdf-col-finePct" style={{ ...s.td, fontWeight: 600, color: 'var(--text-primary)' }}>{(globalFinecutPct * 100).toFixed(1)}%</td>
                     <td className="pdf-col-roughTotalSecs" style={{ ...s.td, fontWeight: 600 }}>{totals.roughcutTotalSecs > 0 ? secsToHMS(totals.roughcutTotalSecs) : '—'}</td>
                     <td className="pdf-col-fineTotalSecs" style={{ ...s.td, fontWeight: 600 }}>{totals.finecutTotalSecs > 0 ? secsToHMS(totals.finecutTotalSecs) : '—'}</td>
-                    <td className="pdf-col-roughScenes" style={{ ...s.td, fontWeight: 600 }}>{totals.roughcutScenes}</td>
+                    <td className="pdf-col-roughScenes" style={{ ...s.td, fontWeight: 600 }}>{roughcutProgressScenes}</td>
                     <td className="pdf-col-fineScenes" style={{ ...s.td, fontWeight: 600 }}>{totals.finecutScenes}</td>
                     <td className="pdf-col-totalScenes" style={{ ...s.td, fontWeight: 600 }}>{totals.totalScenes}</td>
-                    <td className="pdf-col-roughPages" style={{ ...s.td, fontWeight: 600 }}>{totals.roughcutPages > 0 ? totals.roughcutPages.toFixed(1) : '—'}</td>
+                    <td className="pdf-col-roughPages" style={{ ...s.td, fontWeight: 600 }}>{roughcutProgressPages > 0 ? roughcutProgressPages.toFixed(1) : '—'}</td>
                     <td className="pdf-col-avgPage" style={{ ...s.td, fontWeight: 600 }}>{globalAvgPageDur}</td>
                   </tr>
                 </tbody>

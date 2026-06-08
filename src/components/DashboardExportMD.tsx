@@ -98,6 +98,18 @@ function epAvgStr(secs: number, pages: number): string {
   return secsToHMS(Math.round(secs / pages))
 }
 
+function roughcutProgressScenes(stats: EpisodeStats): number {
+  return stats.roughcutScenes + stats.finecutScenes
+}
+
+function roughcutProgressPages(stats: EpisodeStats): number {
+  return stats.roughcutPages + stats.finecutPages
+}
+
+function roughcutProgressPct(stats: EpisodeStats): number {
+  return stats.validScenes > 0 ? roughcutProgressScenes(stats) / stats.validScenes : 0
+}
+
 export default function DashboardExportMD({
   showName, eps, totals, globalRoughcutPct, globalFinecutPct, globalAvgPageDur,
   scenesMap, onClose,
@@ -119,31 +131,31 @@ export default function DashboardExportMD({
 
     if (summaryOpts.summary) {
       const totalSecs = totals.roughcutSecs + totals.finecutSecs
-      const combinedScenes = totals.roughcutScenes + totals.finecutScenes
-      const combinedPct = totals.validScenes > 0 ? combinedScenes / totals.validScenes : 0
+      const roughScenes = totals.roughcutScenes + totals.finecutScenes
+      const roughPages = totals.roughcutPages + totals.finecutPages
       lines.push('## 全劇合計')
       lines.push('')
       lines.push('| 項目 | 時長 | 場次 | 百分比 |')
       lines.push('|------|------|------|------|')
-      lines.push(`| 已初剪 | ${secsToHMS(totals.roughcutSecs)} | ${totals.roughcutScenes} / ${totals.validScenes} | ${pctStr(globalRoughcutPct)} |`)
+      lines.push(`| 已初剪 | ${secsToHMS(totals.roughcutSecs)} | ${roughScenes} / ${totals.validScenes} | ${pctStr(globalRoughcutPct)} |`)
       lines.push(`| 已精剪 | ${secsToHMS(totals.finecutSecs)} | ${totals.finecutScenes} / ${totals.validScenes} | ${pctStr(globalFinecutPct)} |`)
-      lines.push(`| 總計 | ${secsToHMS(totalSecs)} | ${combinedScenes} / ${totals.validScenes} | ${pctStr(combinedPct)} |`)
+      lines.push(`| 總計 | ${secsToHMS(totalSecs)} | ${roughScenes} / ${totals.validScenes} | ${pctStr(globalRoughcutPct)} |`)
       lines.push('')
-      lines.push(`**初剪頁數：** ${totals.roughcutPages.toFixed(1)} 頁　・　頁均時長 ${globalAvgPageDur}`)
+      lines.push(`**初剪頁數：** ${roughPages.toFixed(1)} 頁　・　頁均時長 ${globalAvgPageDur}`)
       lines.push('')
     }
 
     if (summaryOpts.table) {
       const allCols: { key: keyof SummaryOptions; label: string; render: (ep: EpisodeView) => string; total: string }[] = [
         { key: 'episode', label: '集數', render: ep => ep.episode, total: '全劇合計' },
-        { key: 'roughPct', label: '已初剪%', render: ep => pctStr(ep.stats.roughcutPct), total: pctStr(globalRoughcutPct) },
+        { key: 'roughPct', label: '已初剪%', render: ep => pctStr(roughcutProgressPct(ep.stats)), total: pctStr(globalRoughcutPct) },
         { key: 'finePct', label: '已精剪%', render: ep => pctStr(ep.stats.finecutPct), total: pctStr(globalFinecutPct) },
         { key: 'roughSecs', label: '初剪時長', render: ep => ep.stats.roughcutSecs > 0 ? secsToHMS(ep.stats.roughcutSecs) : '—', total: secsToHMS(totals.roughcutSecs) },
         { key: 'fineSecs', label: '精剪時長', render: ep => ep.stats.finecutSecs > 0 ? secsToHMS(ep.stats.finecutSecs) : '—', total: secsToHMS(totals.finecutSecs) },
-        { key: 'roughScenes', label: '初剪場次', render: ep => String(ep.stats.roughcutScenes), total: String(totals.roughcutScenes) },
+        { key: 'roughScenes', label: '初剪場次', render: ep => String(roughcutProgressScenes(ep.stats)), total: String(totals.roughcutScenes + totals.finecutScenes) },
         { key: 'fineScenes', label: '精剪場次', render: ep => String(ep.stats.finecutScenes), total: String(totals.finecutScenes) },
         { key: 'totalScenes', label: '總場次', render: ep => String(ep.stats.totalScenes), total: String(totals.totalScenes) },
-        { key: 'roughPages', label: '初剪頁數', render: ep => ep.stats.roughcutPages > 0 ? ep.stats.roughcutPages.toFixed(1) : '—', total: totals.roughcutPages > 0 ? totals.roughcutPages.toFixed(1) : '—' },
+        { key: 'roughPages', label: '初剪頁數', render: ep => roughcutProgressPages(ep.stats) > 0 ? roughcutProgressPages(ep.stats).toFixed(1) : '—', total: totals.roughcutPages + totals.finecutPages > 0 ? (totals.roughcutPages + totals.finecutPages).toFixed(1) : '—' },
         { key: 'avgPage', label: '頁均時長', render: ep => epAvgStr(ep.stats.roughcutSecs + ep.stats.finecutSecs, ep.stats.roughcutPages + ep.stats.finecutPages), total: globalAvgPageDur },
       ]
       const cols = allCols.filter(c => summaryOpts[c.key])
