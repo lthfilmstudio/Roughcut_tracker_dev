@@ -3,7 +3,7 @@ import type { SceneRow } from '../types'
 import { formatRoughcutLength, formatDate, normalizeScene, autoFillRoughcutStatus, todayYMD, computeEpisodeStats, parseSecs, secsToHMS, finecutMetaKey } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
 import { getDataService } from '../services'
-import { useProject } from '../contexts/ProjectContext'
+import { useProject } from '../contexts/useProject'
 import { getTabNames, hasSummaryTab, projectTitle } from '../config/projectConfig'
 import type { EpisodesCache } from '../hooks/useEpisodesCache'
 

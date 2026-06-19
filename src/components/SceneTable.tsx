@@ -3,6 +3,7 @@ import type { SceneRow } from '../types'
 import { formatRoughcutLength, formatDate, todayYMD } from '../lib/stats'
 import { saveBeforeSceneSwitch } from '../lib/sceneEditSwitch'
 import { useIsMobile } from '../hooks/useMediaQuery'
+import { EP_COL_DEFS } from './sceneTableFields'
 
 const FORM_STATUS_LIST = ['已精剪', '已初剪', '整場刪除'] as const
 type Status = '已精剪' | '已初剪' | '尚缺鏡頭' | '整場刪除' | ''
@@ -41,26 +42,6 @@ const BATCH_ACTIONS: { label: string; value: string }[] = [
   { label: '整場刪除', value: '整場刪除' },
   { label: '清除狀態', value: '' },
 ]
-
-export const EP_COL_DEFS: { key: string; label: string }[] = [
-  { key: 'sceneNum', label: '場次' },
-  { key: 'roughcutLength', label: '長度' },
-  { key: 'pages', label: '頁數' },
-  { key: 'date', label: '日期' },
-  { key: 'status', label: '狀態' },
-  { key: 'missingShots', label: '缺鏡' },
-  { key: 'outline', label: '大綱' },
-  { key: 'notes', label: '備註' },
-]
-
-export const EP_PDF_FIELDS: { key: string; label: string }[] = [
-  { key: 'summary', label: '統計摘要' },
-  ...EP_COL_DEFS,
-]
-
-export const EP_PDF_DEFAULTS: Record<string, boolean> = Object.fromEntries(
-  EP_PDF_FIELDS.map(f => [f.key, true]),
-)
 
 function ymdToIso(ymd: string): string {
   if (!ymd) return ''
@@ -836,7 +817,7 @@ interface MobileProps {
   onCancelNew: () => void
 }
 
-function MobileView(p: MobileProps) {
+function MobileView({ mobileMenuRef, ...p }: MobileProps) {
   const editing = p.editRow !== null && p.draft !== null
   const sheetOpen = editing || p.showAddRow
 
@@ -869,7 +850,7 @@ function MobileView(p: MobileProps) {
             {f.key}
           </button>
         ))}
-        <div style={m.moreWrap} ref={p.mobileMenuRef}>
+        <div style={m.moreWrap} ref={mobileMenuRef}>
           <button style={m.moreBtn} onClick={() => p.setShowMobileMenu(!p.showMobileMenu)}>⋯</button>
           {p.showMobileMenu && (
             <div style={m.moreMenu}>

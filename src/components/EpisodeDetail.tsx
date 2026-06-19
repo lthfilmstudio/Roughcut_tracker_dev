@@ -12,11 +12,12 @@ import ExportMD from './ExportMD'
 import ExportCSV from './ExportCSV'
 import ErrorView from './ErrorView'
 import ExportPDFModal from './ExportPDFModal'
-import SceneTable, { EP_COL_DEFS, EP_PDF_FIELDS, EP_PDF_DEFAULTS } from './SceneTable'
+import SceneTable from './SceneTable'
+import { EP_COL_DEFS, EP_PDF_FIELDS, EP_PDF_DEFAULTS } from './sceneTableFields'
 import FinecutTotalInline from './FinecutTotalInline'
 import { STUDIO_NAME } from '../config/sheets'
 import { getTabNames, projectTitle, hasSummaryTab } from '../config/projectConfig'
-import { useProject } from '../contexts/ProjectContext'
+import { useProject } from '../contexts/useProject'
 
 interface Props {
   episode: string

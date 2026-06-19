@@ -8,7 +8,7 @@ import ErrorView from './ErrorView'
 import ExportPDFModal from './ExportPDFModal'
 import { STUDIO_NAME } from '../config/sheets'
 import { projectTitle } from '../config/projectConfig'
-import { useProject } from '../contexts/ProjectContext'
+import { useProject } from '../contexts/useProject'
 
 const DASH_SCENE_COL_DEFS: { key: string; label: string }[] = [
   { key: 'sceneNum', label: '場次' },

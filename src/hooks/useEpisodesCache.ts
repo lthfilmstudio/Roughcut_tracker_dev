@@ -3,7 +3,7 @@ import { getDataService } from '../services'
 import { normalizeScene, computeEpisodeStats } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
 import { getTabNames, hasSummaryTab } from '../config/projectConfig'
-import { useProject } from '../contexts/ProjectContext'
+import { useProject } from '../contexts/useProject'
 import type { SceneRow } from '../types'
 
 export type EpisodesMap = Record<string, SceneRow[]>

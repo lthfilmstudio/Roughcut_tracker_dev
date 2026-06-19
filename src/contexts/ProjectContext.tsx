@@ -1,14 +1,8 @@
-import { createContext, useContext, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { CURRENT_PROJECT } from '../config/projectConfig'
 import type { ProjectConfig } from '../config/projectConfig'
-
-interface ProjectContextValue {
-  project: ProjectConfig
-  setProject: (p: ProjectConfig) => void
-}
-
-const ProjectContext = createContext<ProjectContextValue | null>(null)
+import { ProjectContext } from './projectContextValue'
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [project, setProject] = useState<ProjectConfig>(CURRENT_PROJECT)
@@ -17,10 +11,4 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       {children}
     </ProjectContext.Provider>
   )
-}
-
-export function useProject(): ProjectContextValue {
-  const ctx = useContext(ProjectContext)
-  if (!ctx) throw new Error('useProject must be used inside ProjectProvider')
-  return ctx
 }

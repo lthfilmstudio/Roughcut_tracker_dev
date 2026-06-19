@@ -8,7 +8,7 @@ import EpisodeDetail from './components/EpisodeDetail'
 import QuickPage from './components/QuickPage'
 import SupabasePreview from './components/SupabasePreview'
 import { getTabNames, type ProjectConfig } from './config/projectConfig'
-import { useProject } from './contexts/ProjectContext'
+import { useProject } from './contexts/useProject'
 import { getDataService } from './services'
 import './App.css'
 
