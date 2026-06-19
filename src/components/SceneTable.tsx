@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SceneRow } from '../types'
 import { formatRoughcutLength, formatDate, todayYMD } from '../lib/stats'
+import { saveBeforeSceneSwitch } from '../lib/sceneEditSwitch'
 import { useIsMobile } from '../hooks/useMediaQuery'
 
 const FORM_STATUS_LIST = ['已精剪', '已初剪', '整場刪除'] as const
@@ -106,17 +107,26 @@ export default function SceneTable({
   const [newScene, setNewScene] = useState<SceneRow>(EMPTY_SCENE)
   const [selectedScenes, setSelectedScenes] = useState<Set<string>>(new Set())
   const [showBatchMenu, setShowBatchMenu] = useState(false)
-  const [batchDate, setBatchDate] = useState('')
+  const [batchDate, setBatchDate] = useState(todayYMD)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const batchMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const draftRef = useRef<SceneRow | null>(null)
   const editRowRef = useRef<number | null>(null)
-  const autoSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const lengthInputRef = useRef<HTMLInputElement>(null)
+  const focusLengthOnEditRef = useRef(false)
+  const autoSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true))
   const lastQueuedDraftKeyRef = useRef('')
 
   useEffect(() => { draftRef.current = draft }, [draft])
   useEffect(() => { editRowRef.current = editRow }, [editRow])
+
+  useEffect(() => {
+    if (editRow === null || !focusLengthOnEditRef.current) return
+    focusLengthOnEditRef.current = false
+    lengthInputRef.current?.focus()
+    lengthInputRef.current?.select()
+  }, [editRow])
 
   useEffect(() => {
     setEditRow(null)
@@ -125,8 +135,11 @@ export default function SceneTable({
     setSearch('')
     setSelectedScenes(new Set())
     setShowBatchMenu(false)
-    setBatchDate('')
+    setBatchDate(todayYMD())
     setShowMobileMenu(false)
+    editRowRef.current = null
+    draftRef.current = null
+    focusLengthOnEditRef.current = false
     lastQueuedDraftKeyRef.current = ''
   }, [resetKey])
 
@@ -159,6 +172,8 @@ export default function SceneTable({
       const currentDraft = draftRef.current
       if (!currentDraft || editRow === null) return
       const target = e.target as Element | null
+      if (target?.closest('[data-scene-edit-trigger="true"]')) return
+      if (target?.closest('[data-scene-cancel-trigger="true"]')) return
       const clickedInsideEdit = !!target?.closest('[data-scene-editing="true"]')
       queueAutoSave(editRow, currentDraft, { close: !clickedInsideEdit })
     }
@@ -166,34 +181,59 @@ export default function SceneTable({
     return () => document.removeEventListener('mousedown', onAnyMouseDown)
   }, [editRow, isMobile])
 
-  function startEdit(i: number) {
+  function openEdit(i: number, opts: { focusLength?: boolean } = {}) {
     const base = scenes[i]
+    const nextDraft = { ...base, roughcutDate: base.roughcutDate || todayYMD() }
+    editRowRef.current = i
+    draftRef.current = nextDraft
+    focusLengthOnEditRef.current = opts.focusLength === true
     setEditRow(i)
-    setDraft({ ...base, roughcutDate: base.roughcutDate || todayYMD() })
+    setDraft(nextDraft)
     setShowAddRow(false)
     lastQueuedDraftKeyRef.current = ''
   }
 
+  async function switchEdit(i: number, opts: { focusLength?: boolean } = {}) {
+    const current = editRowRef.current !== null && draftRef.current
+      ? { rowIndex: editRowRef.current, draft: draftRef.current }
+      : null
+    const canSwitch = await saveBeforeSceneSwitch(
+      current,
+      i,
+      (rowIndex, currentDraft) => queueAutoSave(rowIndex, currentDraft),
+    )
+    if (!canSwitch) return
+    openEdit(i, opts)
+  }
+
   function cancelEdit() {
+    editRowRef.current = null
+    draftRef.current = null
+    focusLengthOnEditRef.current = false
     setEditRow(null)
     setDraft(null)
     lastQueuedDraftKeyRef.current = ''
   }
 
-  async function saveEdit(i: number, opts: { close?: boolean; nextDraft?: SceneRow } = {}) {
+  async function saveEdit(i: number, opts: { close?: boolean; nextDraft?: SceneRow } = {}): Promise<boolean> {
     const currentDraft = opts.nextDraft ?? draftRef.current
-    if (!currentDraft) return
+    if (!currentDraft) return true
     try {
       await onUpdateScene(i, currentDraft)
       if (opts.close !== false) {
         if (editRowRef.current === i) {
+          editRowRef.current = null
+          draftRef.current = null
+          focusLengthOnEditRef.current = false
           setEditRow(null)
           setDraft(null)
           lastQueuedDraftKeyRef.current = ''
         }
       }
+      return true
     } catch {
       // 父層已顯示錯誤
+      return false
     }
   }
 
@@ -216,7 +256,7 @@ export default function SceneTable({
     if (lastQueuedDraftKeyRef.current === nextKey) return autoSaveQueueRef.current
     lastQueuedDraftKeyRef.current = nextKey
     const run = async () => saveEdit(i, { close: close ? true : false, nextDraft })
-    const nextSave = autoSaveQueueRef.current.catch(() => {}).then(run)
+    const nextSave = autoSaveQueueRef.current.catch(() => false).then(run)
     autoSaveQueueRef.current = nextSave
     return nextSave
   }
@@ -346,7 +386,7 @@ export default function SceneTable({
     try {
       await onBatchUpdateDate(targets.map(t => t.idx), cleanedDate)
       setSelectedScenes(new Set())
-      setBatchDate('')
+      setBatchDate(todayYMD())
     } catch {
       // 父層已顯示錯誤
     }
@@ -386,7 +426,7 @@ export default function SceneTable({
         selectedCount={selectedCount}
         batchDate={batchDate}
         setBatchDate={setBatchDate}
-        onStartEdit={(i) => startEdit(i)}
+        onStartEdit={(i) => openEdit(i)}
         onOpenAdd={openAdd}
         onClearSelection={() => setSelectedScenes(new Set())}
         onBatchStatus={handleBatchStatus}
@@ -576,7 +616,7 @@ export default function SceneTable({
                           />
                         </td>
                         <td style={s.td}>
-                          <input style={s.input} value={draft?.roughcutLength ?? ''}
+                          <input ref={lengthInputRef} style={s.input} value={draft?.roughcutLength ?? ''}
                             onChange={e => patchDraft({ roughcutLength: e.target.value })}
                             onBlur={e => autosaveDraft(i, { roughcutLength: formatRoughcutLength(e.target.value) })}
                             onKeyDown={e => editKeyDown(e, i)}
@@ -627,13 +667,26 @@ export default function SceneTable({
                         </td>
                         <td style={s.td} className="no-print" onClick={e => e.stopPropagation()}>
                           <button style={s.saveBtn} onClick={() => saveEdit(i)} disabled={saving}>{saving ? '⋯' : '儲存'}</button>
-                          <button style={s.cancelBtn} onClick={cancelEdit}>取消</button>
+                          <button
+                            style={s.cancelBtn}
+                            data-scene-cancel-trigger="true"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={cancelEdit}
+                          >
+                            取消
+                          </button>
                         </td>
                       </>
                     ) : (
                       <>
                         <td className="pdf-col-sceneNum" style={{ ...s.td, color: 'var(--text-primary)', fontWeight: 500 }}>{row.scene}</td>
-                        <td className="pdf-col-roughcutLength" style={s.td}>{data.roughcutLength || '—'}</td>
+                        <td
+                          className="pdf-col-roughcutLength"
+                          style={s.td}
+                          onDoubleClick={() => { void switchEdit(i, { focusLength: true }) }}
+                        >
+                          {data.roughcutLength || '—'}
+                        </td>
                         <td className="pdf-col-pages" style={s.td}>{data.pages || '—'}</td>
                         <td className="pdf-col-date" style={s.td}>{data.roughcutDate || '—'}</td>
                         <td className="pdf-col-status" style={s.td}>
@@ -654,7 +707,13 @@ export default function SceneTable({
                         <td className="pdf-col-outline" style={{ ...s.td, color: 'var(--text-secondary)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.outline || '—'}</td>
                         <td className="pdf-col-notes" style={{ ...s.td, color: 'var(--text-secondary)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.notes || '—'}</td>
                         <td style={s.td} className="no-print">
-                          <button style={s.editBtn} onClick={() => startEdit(i)}>編輯</button>
+                          <button
+                            style={s.editBtn}
+                            data-scene-edit-trigger="true"
+                            onClick={() => { void switchEdit(i) }}
+                          >
+                            編輯
+                          </button>
                           <button style={s.deleteBtn} onClick={() => handleDelete(i)}>刪除</button>
                         </td>
                       </>
@@ -767,7 +826,7 @@ interface MobileProps {
   draft: SceneRow | null
   setDraft: React.Dispatch<React.SetStateAction<SceneRow | null>>
   onAutoSaveEdit: (i: number, patch: Partial<SceneRow>) => void
-  onSaveEdit: (i: number) => Promise<void>
+  onSaveEdit: (i: number) => Promise<boolean>
   onCancelEdit: () => void
   onDeleteEdit: (i: number) => Promise<void>
   showAddRow: boolean

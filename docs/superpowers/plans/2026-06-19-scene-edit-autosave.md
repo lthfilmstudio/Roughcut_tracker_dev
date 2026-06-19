@@ -126,11 +126,11 @@ Use `useState(todayYMD)` for `batchDate`. Replace reset/success assignments of `
 
 On the non-editing desktop length `<td>`, add `onDoubleClick={() => { void switchEdit(i, { focusLength: true }) }}`. Attach `lengthInputRef` only to the active desktop length input and focus/select it in an effect after `editRow` changes when `focusLengthOnEditRef.current` is set. Do not change `MobileView` or `SceneFormSheet`.
 
-- [ ] **Step 5: Run focused and static verification**
+- [ ] **Step 5: Run focused tests, build, and compare lint output**
 
-Run: `node --test tests/sceneEditSwitch.test.ts && npm run lint && npm run build`
+Run: `node --test tests/sceneEditSwitch.test.ts && npm run build`
 
-Expected: 3 tests pass; ESLint exits 0; TypeScript and Vite build exit 0.
+Expected: 3 tests pass; TypeScript and Vite build exit 0. Run ESLint separately and confirm the change adds no errors beyond the 76 pre-existing baseline errors approved by the user on 2026-06-19.
 
 ### Task 3: Verify behavior and commit the implementation
 
