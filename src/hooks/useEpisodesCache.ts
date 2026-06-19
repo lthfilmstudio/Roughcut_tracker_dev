@@ -8,6 +8,7 @@ import type { SceneRow } from '../types'
 
 export type EpisodesMap = Record<string, SceneRow[]>
 export type MetaMap = Record<string, string>
+const EMPTY_META: MetaMap = {}
 
 export interface EpisodesCache {
   scenes: EpisodesMap | null
@@ -74,8 +75,6 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
 
   useEffect(() => {
     if (!token) {
-      setScenes(null)
-      setMeta({})
       loadedKeyRef.current = null
       return
     }
@@ -111,5 +110,13 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
     [token, project],
   )
 
-  return { scenes, meta, loading, error, reload: load, setEpisodeScenes, setMetaValue }
+  return {
+    scenes: token ? scenes : null,
+    meta: token ? meta : EMPTY_META,
+    loading: token ? loading : false,
+    error: token ? error : '',
+    reload: load,
+    setEpisodeScenes,
+    setMetaValue,
+  }
 }

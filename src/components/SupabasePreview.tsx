@@ -71,24 +71,23 @@ function SupabasePreviewInner() {
   // Track session + 清掉 PKCE 回傳留在 URL 的 ?code=...
   useEffect(() => {
     client.auth.getSession().then(({ data }) => {
+      if (data.session) setLoading(true)
       setSession(data.session)
       // PKCE 會留 ?code=xxx&state=xxx 在 query string，session 建立後清掉
       if (window.location.search.includes('code=')) {
         history.replaceState(null, '', window.location.pathname + '#supabase-preview')
       }
     })
-    const { data: sub } = client.auth.onAuthStateChange((_evt, s) => setSession(s))
+    const { data: sub } = client.auth.onAuthStateChange((_evt, s) => {
+      if (s) setLoading(true)
+      setSession(s)
+    })
     return () => sub.subscription.unsubscribe()
   }, [client])
 
   // Load projects when authenticated
   useEffect(() => {
-    if (!session) {
-      setProjects(null)
-      return
-    }
-    setLoading(true)
-    setError(null)
+    if (!session) return
     client
       .from('projects')
       .select('id, name, type, episode_count, episode_prefix')
@@ -102,12 +101,7 @@ function SupabasePreviewInner() {
 
   // Load episodes when project selected
   useEffect(() => {
-    if (!selectedProjectId) {
-      setEpisodes(null)
-      return
-    }
-    setLoading(true)
-    setError(null)
+    if (!selectedProjectId) return
     client
       .from('episodes')
       .select('id, ep_key, display_order')
@@ -122,12 +116,7 @@ function SupabasePreviewInner() {
 
   // Load scenes when episode selected
   useEffect(() => {
-    if (!selectedEpisodeId) {
-      setScenes(null)
-      return
-    }
-    setLoading(true)
-    setError(null)
+    if (!selectedEpisodeId) return
     client
       .from('scenes')
       .select('id, scene_key, roughcut_length_secs, pages, roughcut_date, status, missing_shots, outline, notes, row_order')
@@ -151,6 +140,9 @@ function SupabasePreviewInner() {
   async function handleSignOut() {
     setSelectedProjectId(null)
     setSelectedEpisodeId(null)
+    setProjects(null)
+    setEpisodes(null)
+    setScenes(null)
     await client.auth.signOut()
   }
 
@@ -200,7 +192,14 @@ function SupabasePreviewInner() {
             {projects.map(p => (
               <li key={p.id}>
                 <button
-                  onClick={() => { setSelectedProjectId(p.id); setSelectedEpisodeId(null) }}
+                  onClick={() => {
+                    setEpisodes(null)
+                    setScenes(null)
+                    setSelectedEpisodeId(null)
+                    setLoading(true)
+                    setError(null)
+                    setSelectedProjectId(p.id)
+                  }}
                   style={selectedProjectId === p.id ? selectedBtn : linkBtn}
                 >
                   {p.name} <span style={{ color: '#999', fontSize: 12 }}>({p.id}, {p.type})</span>
@@ -221,7 +220,12 @@ function SupabasePreviewInner() {
               {episodes.map(e => (
                 <button
                   key={e.id}
-                  onClick={() => setSelectedEpisodeId(e.id)}
+                  onClick={() => {
+                    setScenes(null)
+                    setLoading(true)
+                    setError(null)
+                    setSelectedEpisodeId(e.id)
+                  }}
                   style={selectedEpisodeId === e.id ? selectedBtn : linkBtn}
                 >
                   {e.ep_key}

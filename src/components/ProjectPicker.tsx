@@ -28,8 +28,15 @@ export default function ProjectPicker({ userEmail, onPick, onLogout }: Props) {
   }
 
   useEffect(() => {
-    refresh()
-    getDataService().isSuperAdmin().then(setIsSuperAdmin).catch(() => setIsSuperAdmin(false))
+    let active = true
+    const svc = getDataService()
+    svc.getProjects()
+      .then(list => { if (active) setProjects(list) })
+      .catch(e => { if (active) setError(e instanceof Error ? e.message : String(e)) })
+    svc.isSuperAdmin()
+      .then(value => { if (active) setIsSuperAdmin(value) })
+      .catch(() => { if (active) setIsSuperAdmin(false) })
+    return () => { active = false }
   }, [])
 
   // 自動跳轉：只有一個專案時直接進去（super_admin 要能開表單，所以拔掉自動跳）

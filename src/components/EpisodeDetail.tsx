@@ -371,7 +371,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
             </div>
 
             <SceneTable
-              resetKey={episode}
+              key={episode}
               scenes={scenes}
               saving={saving}
               onUpdateScene={handleUpdateScene}

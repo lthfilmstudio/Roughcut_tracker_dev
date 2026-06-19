@@ -40,6 +40,11 @@ function MainApp() {
   const [pickedId, setPickedId] = useState<string | null>(
     () => sessionStorage.getItem(PICKED_PROJECT_KEY),
   )
+  const isFilm = project.type === 'film'
+  const filmTab = getTabNames(project)[0] ?? 'Scenes'
+  const [view, setView] = useState<View>(
+    () => (isFilm ? { page: 'episode', ep: filmTab } : { page: 'dashboard' }),
+  )
 
   // 登入後：如果有記憶中的 pickedId，自動還原 project context
   useEffect(() => {
@@ -47,7 +52,12 @@ function MainApp() {
     getDataService().getProjects()
       .then(list => {
         const match = list.find(p => p.id === pickedId)
-        if (match) setProject(match)
+        if (match) {
+          setProject(match)
+          setView(match.type === 'film'
+            ? { page: 'episode', ep: getTabNames(match)[0] ?? 'Scenes' }
+            : { page: 'dashboard' })
+        }
         else {
           sessionStorage.removeItem(PICKED_PROJECT_KEY)
           setPickedId(null)
@@ -62,21 +72,11 @@ function MainApp() {
   const authed = isAuthenticated && !!pickedId && project.id === pickedId
   const cache = useEpisodesCache(authed ? accessToken : null)
 
-  const isFilm = project.type === 'film'
-  const filmTab = getTabNames(project)[0] ?? 'Scenes'
-  const [view, setView] = useState<View>(
-    () => (isFilm ? { page: 'episode', ep: filmTab } : { page: 'dashboard' }),
-  )
-
-  useEffect(() => {
-    if (!authed) return
-    setView(project.type === 'film'
-      ? { page: 'episode', ep: getTabNames(project)[0] ?? 'Scenes' }
-      : { page: 'dashboard' })
-  }, [pickedId, authed, project])
-
   function handlePickProject(p: ProjectConfig) {
     setProject(p)
+    setView(p.type === 'film'
+      ? { page: 'episode', ep: getTabNames(p)[0] ?? 'Scenes' }
+      : { page: 'dashboard' })
     setPickedId(p.id)
     sessionStorage.setItem(PICKED_PROJECT_KEY, p.id)
   }

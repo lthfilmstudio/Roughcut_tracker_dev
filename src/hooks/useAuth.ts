@@ -12,13 +12,10 @@ export interface AuthAPI extends AuthState {
 
 export function useAuth(): AuthAPI {
   const [session, setSession] = useState<Session | null>(null)
-  const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState(() => !hasSupabaseConfig())
 
   useEffect(() => {
-    if (!hasSupabaseConfig()) {
-      setReady(true)
-      return
-    }
+    if (!hasSupabaseConfig()) return
     const client = getSupabaseClient()
 
     // 初次讀 session（可能是 PKCE 剛換完 code 回來）

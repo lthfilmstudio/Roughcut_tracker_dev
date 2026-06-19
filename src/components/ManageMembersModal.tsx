@@ -28,7 +28,21 @@ export default function ManageMembersModal({ project, currentUserEmail, onClose 
     }
   }
 
-  useEffect(() => { refresh() }, [project.id])
+  useEffect(() => {
+    let active = true
+    const svc = getDataService()
+    Promise.all([
+      svc.listProjectMembers(project.id),
+      svc.listPendingInvites(project.id),
+    ]).then(([list, pendingList]) => {
+      if (!active) return
+      setMembers(list)
+      setPending(pendingList)
+    }).catch(e => {
+      if (active) setLoadErr(e instanceof Error ? e.message : String(e))
+    })
+    return () => { active = false }
+  }, [project.id])
 
   return (
     <div style={s.overlay} onClick={onClose}>

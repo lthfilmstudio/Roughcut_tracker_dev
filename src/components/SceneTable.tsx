@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SceneRow } from '../types'
 import { formatRoughcutLength, formatDate, todayYMD } from '../lib/stats'
 import { saveBeforeSceneSwitch } from '../lib/sceneEditSwitch'
@@ -58,7 +58,6 @@ function isoToYmd(iso: string): string {
 }
 
 interface Props {
-  resetKey: string
   scenes: SceneRow[]
   saving: boolean
   onUpdateScene: (rowIndex: number, scene: SceneRow) => Promise<void>
@@ -74,7 +73,7 @@ interface Props {
 }
 
 export default function SceneTable({
-  resetKey, scenes, saving,
+  scenes, saving,
   onUpdateScene, onAppendScene, onDeleteScene,
   onBatchUpdateStatus, onBatchUpdateDate, onBatchDeleteScenes,
   onOpenBatchImport, onOpenExportMD, onOpenExportCSV, onOpenExportPDF,
@@ -110,21 +109,6 @@ export default function SceneTable({
   }, [editRow])
 
   useEffect(() => {
-    setEditRow(null)
-    setShowAddRow(false)
-    setFilter('全部')
-    setSearch('')
-    setSelectedScenes(new Set())
-    setShowBatchMenu(false)
-    setBatchDate(todayYMD())
-    setShowMobileMenu(false)
-    editRowRef.current = null
-    draftRef.current = null
-    focusLengthOnEditRef.current = false
-    lastQueuedDraftKeyRef.current = ''
-  }, [resetKey])
-
-  useEffect(() => {
     if (!showBatchMenu && !showMobileMenu) return
     function onDocClick(e: MouseEvent) {
       if (batchMenuRef.current && !batchMenuRef.current.contains(e.target as Node)) {
@@ -146,21 +130,6 @@ export default function SceneTable({
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [isMobile, editRow, showAddRow])
-
-  useEffect(() => {
-    if (editRow === null || isMobile) return
-    function onAnyMouseDown(e: MouseEvent) {
-      const currentDraft = draftRef.current
-      if (!currentDraft || editRow === null) return
-      const target = e.target as Element | null
-      if (target?.closest('[data-scene-edit-trigger="true"]')) return
-      if (target?.closest('[data-scene-cancel-trigger="true"]')) return
-      const clickedInsideEdit = !!target?.closest('[data-scene-editing="true"]')
-      queueAutoSave(editRow, currentDraft, { close: !clickedInsideEdit })
-    }
-    document.addEventListener('mousedown', onAnyMouseDown)
-    return () => document.removeEventListener('mousedown', onAnyMouseDown)
-  }, [editRow, isMobile])
 
   function openEdit(i: number, opts: { focusLength?: boolean } = {}) {
     const base = scenes[i]
@@ -196,7 +165,7 @@ export default function SceneTable({
     lastQueuedDraftKeyRef.current = ''
   }
 
-  async function saveEdit(i: number, opts: { close?: boolean; nextDraft?: SceneRow } = {}): Promise<boolean> {
+  const saveEdit = useCallback(async (i: number, opts: { close?: boolean; nextDraft?: SceneRow } = {}): Promise<boolean> => {
     const currentDraft = opts.nextDraft ?? draftRef.current
     if (!currentDraft) return true
     try {
@@ -216,7 +185,7 @@ export default function SceneTable({
       // 父層已顯示錯誤
       return false
     }
-  }
+  }, [onUpdateScene])
 
   function setDraftAndRef(next: SceneRow) {
     draftRef.current = next
@@ -231,7 +200,7 @@ export default function SceneTable({
     return next
   }
 
-  function queueAutoSave(i: number, nextDraft: SceneRow, opts: { close?: boolean } = {}) {
+  const queueAutoSave = useCallback((i: number, nextDraft: SceneRow, opts: { close?: boolean } = {}) => {
     const close = opts.close === true
     const nextKey = `${close ? 'close' : 'stay'}:${i}:${JSON.stringify(nextDraft)}`
     if (lastQueuedDraftKeyRef.current === nextKey) return autoSaveQueueRef.current
@@ -240,7 +209,22 @@ export default function SceneTable({
     const nextSave = autoSaveQueueRef.current.catch(() => false).then(run)
     autoSaveQueueRef.current = nextSave
     return nextSave
-  }
+  }, [saveEdit])
+
+  useEffect(() => {
+    if (editRow === null || isMobile) return
+    function onAnyMouseDown(e: MouseEvent) {
+      const currentDraft = draftRef.current
+      if (!currentDraft || editRow === null) return
+      const target = e.target as Element | null
+      if (target?.closest('[data-scene-edit-trigger="true"]')) return
+      if (target?.closest('[data-scene-cancel-trigger="true"]')) return
+      const clickedInsideEdit = !!target?.closest('[data-scene-editing="true"]')
+      queueAutoSave(editRow, currentDraft, { close: !clickedInsideEdit })
+    }
+    document.addEventListener('mousedown', onAnyMouseDown)
+    return () => document.removeEventListener('mousedown', onAnyMouseDown)
+  }, [editRow, isMobile, queueAutoSave])
 
   function autosaveDraft(i: number, patch: Partial<SceneRow>) {
     const next = patchDraft(patch)

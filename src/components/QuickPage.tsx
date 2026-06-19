@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { SceneRow } from '../types'
 import { formatRoughcutLength, formatDate, normalizeScene, autoFillRoughcutStatus, todayYMD, computeEpisodeStats, parseSecs, secsToHMS, finecutMetaKey } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
@@ -47,7 +47,10 @@ export default function QuickPage({ token, cache, onExit, exitLabel = '← 返�
   const [hint, setHint] = useState('')
   const [finecutEditor, setFinecutEditor] = useState<null | { raw: string }>(null)
 
-  const scenes = ep ? (cache.scenes?.[ep] ?? []) : []
+  const scenes = useMemo(
+    () => ep ? (cache.scenes?.[ep] ?? []) : [],
+    [cache.scenes, ep],
+  )
 
   function flash(msg: string) {
     setHint(msg)
@@ -347,7 +350,6 @@ interface FinecutSheetProps {
 
 function FinecutSheet({ initialValue, saving, onSave, onClose }: FinecutSheetProps) {
   const [draft, setDraft] = useState(initialValue)
-  useEffect(() => { setDraft(initialValue) }, [initialValue])
 
   return (
     <>
