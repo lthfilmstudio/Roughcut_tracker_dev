@@ -26,6 +26,7 @@ supabase/credentials*
 .vscode/*
 !.vscode/extensions.json
 .idea
+.worktrees/
 .DS_Store
 *.suo
 *.ntvs*
