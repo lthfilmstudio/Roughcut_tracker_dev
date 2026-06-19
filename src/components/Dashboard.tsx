@@ -220,7 +220,7 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                 </tr>
                 <tr>
                   <td>初剪頁數</td>
-                  <td colSpan={3}>{roughcutProgressPages.toFixed(1)} 頁　・　頁均時長 {globalAvgPageDur}</td>
+                  <td colSpan={3}>{roughcutProgressPages.toFixed(1)} 頁 ・ 頁均時長 {globalAvgPageDur}</td>
                 </tr>
               </tbody>
             </table>
@@ -370,10 +370,10 @@ export default function Dashboard({ cache, onSelectEpisode, onOpenQuick, onLogou
                     <div className="pdf-allscenes-ep-head">
                       <span className="pdf-allscenes-ep-title">{ep.episode}</span>
                       <span className="pdf-allscenes-ep-meta">
-                        已初剪 {(epRoughcutPct * 100).toFixed(1)}%　・
-                        已精剪 {(st.finecutPct * 100).toFixed(1)}%　・
-                        場次 {st.totalScenes}　・
-                        初剪 {st.roughcutTotalSecs > 0 ? secsToHMS(st.roughcutTotalSecs) : '—'}　・
+                        已初剪 {(epRoughcutPct * 100).toFixed(1)}% ・
+                        已精剪 {(st.finecutPct * 100).toFixed(1)}% ・
+                        場次 {st.totalScenes} ・
+                        初剪 {st.roughcutTotalSecs > 0 ? secsToHMS(st.roughcutTotalSecs) : '—'} ・
                         精剪 {(finecutTotalSecsByEp[ep.episode] ?? 0) > 0 ? secsToHMS(finecutTotalSecsByEp[ep.episode]) : '—'}
                       </span>
                     </div>

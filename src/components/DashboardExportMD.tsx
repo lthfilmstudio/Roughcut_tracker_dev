@@ -141,7 +141,7 @@ export default function DashboardExportMD({
       lines.push(`| 已精剪 | ${secsToHMS(totals.finecutSecs)} | ${totals.finecutScenes} / ${totals.validScenes} | ${pctStr(globalFinecutPct)} |`)
       lines.push(`| 總計 | ${secsToHMS(totalSecs)} | ${roughScenes} / ${totals.validScenes} | ${pctStr(globalRoughcutPct)} |`)
       lines.push('')
-      lines.push(`**初剪頁數：** ${roughPages.toFixed(1)} 頁　・　頁均時長 ${globalAvgPageDur}`)
+      lines.push(`**初剪頁數：** ${roughPages.toFixed(1)} 頁 ・ 頁均時長 ${globalAvgPageDur}`)
       lines.push('')
     }
 

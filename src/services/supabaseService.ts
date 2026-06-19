@@ -82,7 +82,7 @@ function sceneRowToDb(scene: SceneRow, episodeId: string, rowOrder: number): Omi
 function ymdHyphen(s: string): string | null {
   const trimmed = s.trim()
   if (!trimmed) return null
-  const m = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/)
+  const m = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/)
   if (!m) return null
   return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
 }

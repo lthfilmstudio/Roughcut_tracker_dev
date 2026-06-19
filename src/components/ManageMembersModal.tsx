@@ -243,7 +243,7 @@ function PendingRow({ invite, onChanged }: { invite: PendingInvite; onChanged: (
     <li style={{ ...s.memberRow, borderStyle: 'dashed', opacity: 0.85 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={s.memberEmail}>{invite.email}</div>
-        <div style={s.memberMeta}>{invite.role}　·　等待登入</div>
+        <div style={s.memberMeta}>{invite.role} · 等待登入</div>
       </div>
       <button
         type="button"

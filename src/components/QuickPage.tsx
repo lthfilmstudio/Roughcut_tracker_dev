@@ -185,7 +185,7 @@ export default function QuickPage({ token, cache, onExit, exitLabel = '← 返�
                   <div style={s.epName}>{e}</div>
                   <div style={s.epMeta}>
                     {rows.length > 0
-                      ? <>初剪 {rp}%　精剪 {fp}%　{rows.length} 場</>
+                      ? <>初剪 {rp}% 精剪 {fp}% {rows.length} 場</>
                       : '尚無資料'}
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export default function QuickPage({ token, cache, onExit, exitLabel = '← 返�
         <div style={s.headerTitle}>
           <div style={s.headerMain}>{isFilm ? projectTitle(project) : `${project.name} · ${ep}`}</div>
           <div style={s.headerSub}>
-            {scenes.length} 場　初剪 {Math.round(stats.roughcutPct * 100)}%　精剪 {Math.round(stats.finecutPct * 100)}%
+            {scenes.length} 場 初剪 {Math.round(stats.roughcutPct * 100)}% 精剪 {Math.round(stats.finecutPct * 100)}%
           </div>
         </div>
         <span style={{ width: 60 }} />

@@ -27,8 +27,8 @@ export function formatDate(raw: string): string {
   const trimmed = raw.trim()
   if (!trimmed) return ''
 
-  if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(trimmed)) {
-    const parts = trimmed.split(/[\/\-]/)
+  if (/^\d{4}[/-]\d{1,2}[/-]\d{1,2}$/.test(trimmed)) {
+    const parts = trimmed.split(/[/-]/)
     return `${parts[0]}/${parts[1].padStart(2, '0')}/${parts[2].padStart(2, '0')}`
   }
 
@@ -47,7 +47,7 @@ export function formatDate(raw: string): string {
     return trimmed
   }
 
-  const parts = trimmed.split(/[\/\-]/)
+  const parts = trimmed.split(/[/-]/)
 
   if (parts.length === 2) {
     return `${thisYear}/${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`
