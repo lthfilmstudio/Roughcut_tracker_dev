@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SceneRow } from '../types'
 import { formatRoughcutLength, formatDate, todayYMD } from '../lib/stats'
 import { saveBeforeSceneSwitch } from '../lib/sceneEditSwitch'
+import { rangeKeys } from '../lib/selectionRange'
 import { useIsMobile } from '../hooks/useMediaQuery'
 
 const FORM_STATUS_LIST = ['已精剪', '已初剪', '整場刪除'] as const
@@ -117,6 +118,7 @@ export default function SceneTable({
   const focusLengthOnEditRef = useRef(false)
   const autoSaveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true))
   const lastQueuedDraftKeyRef = useRef('')
+  const lastSelectedKeyRef = useRef<string | null>(null)
 
   useEffect(() => { draftRef.current = draft }, [draft])
   useEffect(() => { editRowRef.current = editRow }, [editRow])
@@ -141,6 +143,7 @@ export default function SceneTable({
     draftRef.current = null
     focusLengthOnEditRef.current = false
     lastQueuedDraftKeyRef.current = ''
+    lastSelectedKeyRef.current = null
   }, [resetKey])
 
   useEffect(() => {
@@ -357,6 +360,21 @@ export default function SceneTable({
         return next
       })
     }
+  }
+
+  // 桌面版 checkbox 點擊：Shift+click 從上次點的場次一路加選到這次點的場次
+  function handleSelectClick(sceneKey: string, e: React.MouseEvent) {
+    if (e.shiftKey && lastSelectedKeyRef.current) {
+      const keys = rangeKeys(filteredScenes.map(r => r.scene), lastSelectedKeyRef.current, sceneKey)
+      setSelectedScenes(prev => {
+        const next = new Set(prev)
+        keys.forEach(k => next.add(k))
+        return next
+      })
+    } else {
+      toggleSelectScene(sceneKey)
+    }
+    lastSelectedKeyRef.current = sceneKey
   }
 
   async function handleBatchStatus(newStatus: string) {
@@ -596,13 +614,14 @@ export default function SceneTable({
                     <td
                       className="no-print"
                       style={{ ...s.td, textAlign: 'center', width: 36 }}
-                      onClick={e => { e.stopPropagation(); toggleSelectScene(row.scene) }}
+                      onMouseDown={e => { if (e.shiftKey) e.preventDefault() }}
+                      onClick={e => { e.stopPropagation(); handleSelectClick(row.scene, e) }}
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => toggleSelectScene(row.scene)}
-                        onClick={e => e.stopPropagation()}
+                        onChange={() => {}}
+                        onClick={e => { e.stopPropagation(); handleSelectClick(row.scene, e) }}
                         style={{ accentColor: '#fff', width: 14, height: 14, cursor: 'pointer' }}
                       />
                     </td>
