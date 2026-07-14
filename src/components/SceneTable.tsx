@@ -801,21 +801,21 @@ function BatchUpdateDialog({
 
   return (
     <div
-      className="batch-update-backdrop no-print"
+      className="bottom-sheet-backdrop batch-update-backdrop no-print"
       onClick={saving ? undefined : onClose}
     >
       <div
-        className="batch-update-dialog"
+        className="bottom-sheet batch-update-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-update-title"
         onClick={e => e.stopPropagation()}
       >
-        <div className="batch-update-handle" />
-        <div className="batch-update-header">
-          <span id="batch-update-title" className="batch-update-title">批次修改</span>
+        <div className="bottom-sheet-handle batch-update-handle" />
+        <div className="bottom-sheet-header batch-update-header">
+          <span id="batch-update-title" className="bottom-sheet-title">批次修改</span>
           <button
-            className="batch-update-close"
+            className="bottom-sheet-close"
             onClick={onClose}
             disabled={saving}
             aria-label="關閉"
@@ -824,7 +824,7 @@ function BatchUpdateDialog({
           </button>
         </div>
 
-        <div className="batch-update-body">
+        <div className="bottom-sheet-body batch-update-body">
           <div className="form-field">
             <label className="form-field-label" htmlFor="batch-update-status">狀態</label>
             <select
@@ -885,10 +885,10 @@ function BatchUpdateDialog({
           )}
         </div>
 
-        <div className="batch-update-footer">
-          <button className="batch-update-cancel" onClick={onClose} disabled={saving}>取消</button>
+        <div className="bottom-sheet-footer">
+          <button className="bottom-sheet-cancel" onClick={onClose} disabled={saving}>取消</button>
           <button
-            className="batch-update-submit"
+            className="bottom-sheet-save"
             onClick={() => { void onSubmit() }}
             disabled={!canApply}
           >

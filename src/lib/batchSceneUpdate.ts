@@ -1,14 +1,14 @@
 import { formatDate } from './stats.ts'
 import type { SceneRow } from '../types/index.ts'
 
-export type BatchStatusChoice =
+type BatchStatusChoice =
   | 'unchanged'
   | 'roughcut'
   | 'finecut'
   | 'deleted'
   | 'clear'
 
-export type BatchDateMode = 'unchanged' | 'set' | 'clear'
+type BatchDateMode = 'unchanged' | 'set' | 'clear'
 
 export interface BatchUpdateSettings {
   status: BatchStatusChoice
@@ -18,7 +18,7 @@ export interface BatchUpdateSettings {
 
 export type BatchScenePatch = Partial<Pick<SceneRow, 'status' | 'roughcutDate'>>
 
-export interface BatchUpdatePlan {
+interface BatchUpdatePlan {
   patch: BatchScenePatch
   changes: string[]
 }
@@ -51,4 +51,11 @@ export function buildBatchUpdatePlan(settings: BatchUpdateSettings): BatchUpdate
 
 export function applyBatchScenePatch(scene: SceneRow, patch: BatchScenePatch): SceneRow {
   return { ...scene, ...patch }
+}
+
+export function hasBatchSceneChanges(scene: SceneRow, patch: BatchScenePatch): boolean {
+  return (
+    ('status' in patch && scene.status !== patch.status)
+    || ('roughcutDate' in patch && scene.roughcutDate !== patch.roughcutDate)
+  )
 }

@@ -6,7 +6,7 @@ import {
   finecutMetaKey,
 } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
-import { applyBatchScenePatch } from '../lib/batchSceneUpdate'
+import { applyBatchScenePatch, hasBatchSceneChanges } from '../lib/batchSceneUpdate'
 import type { BatchScenePatch } from '../lib/batchSceneUpdate'
 import type { EpisodesCache } from '../hooks/useEpisodesCache'
 import BatchImport from './BatchImport'
@@ -131,17 +131,16 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
   async function handleBatchUpdate(rowIndices: number[], patch: BatchScenePatch) {
     setSaving(true)
     try {
-      const updates = rowIndices.map(idx => ({
-        rowIndex: idx,
-        scene: applyBatchScenePatch(scenes[idx], patch),
-      }))
-      await getDataService(token).batchUpdateScenes(project, episode, updates)
-      const targetSet = new Set(rowIndices)
-      const updated = scenes.map((r, i) =>
-        targetSet.has(i) ? applyBatchScenePatch(r, patch) : r,
+      const changedIndices = rowIndices.filter(idx => hasBatchSceneChanges(scenes[idx], patch))
+      if (changedIndices.length === 0) return
+      const targetSet = new Set(changedIndices)
+      const updated = scenes.map((scene, index) =>
+        targetSet.has(index) ? applyBatchScenePatch(scene, patch) : scene,
       )
+      const updates = changedIndices.map(rowIndex => ({ rowIndex, scene: updated[rowIndex] }))
+      await getDataService(token).batchUpdateScenes(project, episode, updates)
       cache.setEpisodeScenes(episode, () => updated)
-      syncSummary(updated)
+      if ('status' in patch) syncSummary(updated)
     } catch (e: unknown) {
       alert('批次更新失敗：' + (e instanceof Error ? e.message : String(e)))
       throw e

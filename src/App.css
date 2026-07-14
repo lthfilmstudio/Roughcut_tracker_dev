@@ -381,27 +381,17 @@
 
 /* ==== 批次修改視窗（桌機置中、手機 Bottom Sheet） ==== */
 .batch-update-backdrop {
-  position: fixed;
-  inset: 0;
   z-index: 110;
-  display: flex;
   align-items: center;
-  justify-content: center;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.55);
-  animation: fade-in 0.2s ease;
 }
 
 .batch-update-dialog {
   width: min(420px, 100%);
   max-height: calc(100vh - 40px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #111;
-  border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  animation: none;
 }
 
 .batch-update-handle {
@@ -410,65 +400,14 @@
 
 .batch-update-header {
   padding: 14px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-}
-
-.batch-update-title {
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.batch-update-close {
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 20px;
-  cursor: pointer;
 }
 
 .batch-update-body {
   padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
   gap: 16px;
-  overflow-y: auto;
 }
 
-.batch-update-footer {
-  padding: 12px 20px;
-  display: flex;
-  gap: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.batch-update-footer button {
-  flex: 1;
-  padding: 11px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.batch-update-cancel {
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-
-.batch-update-submit {
-  background: var(--text-primary);
-  color: var(--bg);
-  border: none;
-}
-
-.batch-update-close:disabled,
-.batch-update-footer button:disabled,
+.batch-update-dialog button:disabled,
 .batch-update-body input:disabled,
 .batch-update-body select:disabled {
   cursor: not-allowed;
@@ -501,10 +440,6 @@
 
   .batch-update-header {
     padding: 10px 20px 12px;
-  }
-
-  .batch-update-footer {
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
 

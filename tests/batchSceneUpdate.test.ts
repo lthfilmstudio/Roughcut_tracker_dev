@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   applyBatchScenePatch,
   buildBatchUpdatePlan,
+  hasBatchSceneChanges,
   type BatchUpdateSettings,
 } from '../src/lib/batchSceneUpdate.ts'
 import type { SceneRow } from '../src/types/index.ts'
@@ -74,6 +75,14 @@ test('applying a patch preserves fields absent from the patch', () => {
   assert.notEqual(updated, scene)
 })
 
+test('detects whether a patch would change a scene', () => {
+  assert.equal(hasBatchSceneChanges(scene, { status: '已初剪' }), false)
+  assert.equal(hasBatchSceneChanges(scene, { roughcutDate: '2026/07/01' }), false)
+  assert.equal(hasBatchSceneChanges(scene, { status: '已精剪' }), true)
+  assert.equal(hasBatchSceneChanges(scene, { roughcutDate: '' }), true)
+  assert.equal(hasBatchSceneChanges(scene, {}), false)
+})
+
 test('confirmation changes match every field and value in the patch', () => {
   const settings: BatchUpdateSettings[] = [
     { ...unchanged, status: 'roughcut' },
@@ -85,16 +94,16 @@ test('confirmation changes match every field and value in the patch', () => {
 
   for (const value of settings) {
     const plan = buildBatchUpdatePlan(value)
-    assert.notEqual(plan, null)
-    assert.equal(plan!.changes.length, Object.keys(plan!.patch).length)
+    assert.ok(plan)
+    assert.equal(plan.changes.length, Object.keys(plan.patch).length)
 
-    if ('status' in plan!.patch) {
-      const expected = plan!.patch.status ? `狀態：${plan!.patch.status}` : '狀態：清除'
-      assert.ok(plan!.changes.includes(expected))
+    if ('status' in plan.patch) {
+      const expected = plan.patch.status ? `狀態：${plan.patch.status}` : '狀態：清除'
+      assert.ok(plan.changes.includes(expected))
     }
-    if ('roughcutDate' in plan!.patch) {
-      const expected = plan!.patch.roughcutDate ? `日期：${plan!.patch.roughcutDate}` : '日期：清除'
-      assert.ok(plan!.changes.includes(expected))
+    if ('roughcutDate' in plan.patch) {
+      const expected = plan.patch.roughcutDate ? `日期：${plan.patch.roughcutDate}` : '日期：清除'
+      assert.ok(plan.changes.includes(expected))
     }
   }
 })
