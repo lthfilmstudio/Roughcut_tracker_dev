@@ -16,7 +16,7 @@
 - Create: `src/lib/batchSceneUpdate.ts`
 - Create: `tests/batchSceneUpdate.test.ts`
 
-- [ ] **Step 1: Write failing tests for every patch shape**
+- [x] **Step 1: Write failing tests for every patch shape**
 
 Cover these cases with Node's built-in test runner:
 
@@ -31,7 +31,7 @@ Run: `node --test tests/batchSceneUpdate.test.ts`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `src/lib/batchSceneUpdate.ts`.
 
-- [ ] **Step 2: Implement the smallest pure helper**
+- [x] **Step 2: Implement the smallest pure helper**
 
 Use explicit choices so `unchanged`, `clear`, and a real value cannot be confused:
 
@@ -68,7 +68,7 @@ Implement:
 
 When `dateMode` is `set`, normalize the supplied date with the existing `formatDate`. When it is `clear`, use `''`. Return `null` when both fields remain unchanged or when `dateMode` is `set` but the date is empty.
 
-- [ ] **Step 3: Run the focused tests**
+- [x] **Step 3: Run the focused tests**
 
 Run: `node --test tests/batchSceneUpdate.test.ts`
 
@@ -80,7 +80,7 @@ Expected: all new tests pass, 0 fail.
 - Modify: `src/components/EpisodeDetail.tsx:129-172`
 - Modify: `src/components/EpisodeDetail.tsx:372-381`
 
-- [ ] **Step 1: Replace the two handlers**
+- [x] **Step 1: Replace the two handlers**
 
 Replace `handleBatchUpdateStatus` and `handleBatchUpdateDate` with:
 
@@ -97,11 +97,11 @@ Use `applyBatchScenePatch` when building both the service payload and the update
 
 Keep the existing error alert and rethrow behavior. Do not change `handleBatchDeleteScenes` or any service/schema interface.
 
-- [ ] **Step 2: Replace the child props**
+- [x] **Step 2: Replace the child props**
 
 Replace the two `SceneTable` props `onBatchUpdateStatus` and `onBatchUpdateDate` with one `onBatchUpdate` prop accepting selected row indices and `BatchScenePatch`.
 
-- [ ] **Step 3: Compile the parent integration**
+- [x] **Step 3: Compile the parent integration**
 
 Run: `npm run build`
 
@@ -113,7 +113,7 @@ Expected: TypeScript and Vite exit 0. If `SceneTable` has not yet been migrated,
 - Modify: `src/components/SceneTable.tsx:80-185`
 - Modify: `src/components/SceneTable.tsx:380-428`
 
-- [ ] **Step 1: Replace the old batch UI state**
+- [x] **Step 1: Replace the old batch UI state**
 
 Replace `showBatchMenu` and `batchDate` with:
 
@@ -122,7 +122,7 @@ Replace `showBatchMenu` and `batchDate` with:
 
 When the user changes the date mode from unchanged/clear to `set`, populate an empty date with `todayYMD()`. Do not make today's date active until the user explicitly selects `set`.
 
-- [ ] **Step 2: Add deterministic reset and close helpers**
+- [x] **Step 2: Add deterministic reset and close helpers**
 
 Add small local helpers that:
 
@@ -132,7 +132,7 @@ Add small local helpers that:
 
 Backdrop, close button, and `Esc` all use the same close helper. Include the batch dialog in body-scroll locking while it is open on mobile.
 
-- [ ] **Step 3: Add the single submit handler**
+- [x] **Step 3: Add the single submit handler**
 
 The submit handler must:
 
@@ -155,7 +155,7 @@ Disable all dialog inputs/actions while `saving` is true.
 - Modify: `src/components/SceneTable.tsx` near the existing Bottom Sheet components
 - Modify: `src/App.css:260-380`
 
-- [ ] **Step 1: Simplify both batch toolbars**
+- [x] **Step 1: Simplify both batch toolbars**
 
 Desktop selected-state controls become:
 
@@ -171,7 +171,7 @@ Mobile selected-state controls become:
 
 Remove the old desktop status menu/date controls and the old mobile quick-status/date controls. Do not change selection, Shift-selection, or batch-delete handlers.
 
-- [ ] **Step 2: Add one `BatchUpdateDialog` component**
+- [x] **Step 2: Add one `BatchUpdateDialog` component**
 
 The shared component receives the settings, setters, selected count, save state, submit callback, and close callback. It renders:
 
@@ -182,11 +182,11 @@ The shared component receives the settings, setters, selected count, save state,
 
 Disable the apply button when `buildBatchUpdatePlan(settings)` is `null` or while saving.
 
-- [ ] **Step 3: Add focused responsive styling**
+- [x] **Step 3: Add focused responsive styling**
 
 Reuse the existing Bottom Sheet visual language. The same JSX should appear as a centered dialog on desktop and a bottom-aligned sheet on mobile. Add only the CSS needed for this component; do not restyle existing scene-edit sheets or unrelated controls.
 
-- [ ] **Step 4: Run static verification**
+- [x] **Step 4: Run static verification**
 
 Run:
 
@@ -199,6 +199,8 @@ git diff --check
 
 Expected: all tests, lint, build, and whitespace checks pass.
 
+Result (2026-07-14): focused tests, build, and `git diff --check` pass. Full-repo lint remains blocked by the existing baseline (`79 errors / 4 warnings`, including `.worktrees/fix-eslint`). The new helper, test, and `EpisodeDetail.tsx` lint cleanly; `SceneTable.tsx` has no new rule types and fewer errors than `origin/main`.
+
 ### Task 5: Verify real behavior and scope
 
 **Files:**
@@ -208,7 +210,7 @@ Expected: all tests, lint, build, and whitespace checks pass.
 - Verify: `src/components/EpisodeDetail.tsx`
 - Verify: `src/App.css`
 
-- [ ] **Step 1: Audit the diff**
+- [x] **Step 1: Audit the diff**
 
 Run:
 
@@ -242,7 +244,7 @@ Use local non-production data and verify both desktop and mobile viewport behavi
 
 Do not test writes against production. If local test data or a safe login state is unavailable, report the missing browser cases as unverified instead of substituting a production write.
 
-- [ ] **Step 3: Run final verification and commit only approved files**
+- [x] **Step 3: Run final verification and commit only approved files**
 
 Run the focused tests, lint, build, and `git diff --check` again. Then stage only:
 
@@ -257,3 +259,11 @@ git add \
 ```
 
 Commit message: `feat: combine scene batch status and date`
+
+Final verification record (2026-07-14):
+
+- Focused tests: 18 passed, 0 failed.
+- Production build: passed; Vite reports the existing large-chunk warning.
+- Whitespace check: passed.
+- Browser: local app reaches the login screen, but its configured Supabase endpoint is production. No production write was attempted, so the desktop/mobile write scenarios above remain intentionally unverified.
+- Scope review: only the approved batch-update helper, dialog, parent integration, responsive styles, tests, and planning documents changed.

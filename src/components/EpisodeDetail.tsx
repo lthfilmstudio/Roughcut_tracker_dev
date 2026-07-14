@@ -140,7 +140,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
       const updates = changedIndices.map(rowIndex => ({ rowIndex, scene: updated[rowIndex] }))
       await getDataService(token).batchUpdateScenes(project, episode, updates)
       cache.setEpisodeScenes(episode, () => updated)
-      if ('status' in patch) syncSummary(updated)
+      syncSummary(updated)
     } catch (e: unknown) {
       alert('批次更新失敗：' + (e instanceof Error ? e.message : String(e)))
       throw e

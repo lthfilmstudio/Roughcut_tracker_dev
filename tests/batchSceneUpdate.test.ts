@@ -66,6 +66,16 @@ test('sets status and date in one patch', () => {
   )
 })
 
+test('clears status and date in one patch', () => {
+  assert.deepEqual(
+    buildBatchUpdatePlan({ status: 'clear', dateMode: 'clear', date: '' }),
+    {
+      patch: { status: '', roughcutDate: '' },
+      changes: ['狀態：清除', '日期：清除'],
+    },
+  )
+})
+
 test('applying a patch preserves fields absent from the patch', () => {
   const updated = applyBatchScenePatch(scene, { status: '已精剪' })
 
