@@ -2,10 +2,12 @@ import { useRef, useState } from 'react'
 import { getDataService } from '../services'
 import type { SceneRow } from '../types'
 import {
-  secsToHMS, normalizeScene, autoFillRoughcutStatus, computeEpisodeStats, formatDate,
+  secsToHMS, normalizeScene, autoFillRoughcutStatus, computeEpisodeStats,
   finecutMetaKey,
 } from '../lib/stats'
 import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
+import { applyBatchScenePatch } from '../lib/batchSceneUpdate'
+import type { BatchScenePatch } from '../lib/batchSceneUpdate'
 import type { EpisodesCache } from '../hooks/useEpisodesCache'
 import BatchImport from './BatchImport'
 import ExportMD from './ExportMD'
@@ -126,45 +128,22 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
     }
   }
 
-  async function handleBatchUpdateStatus(rowIndices: number[], newStatus: string) {
+  async function handleBatchUpdate(rowIndices: number[], patch: BatchScenePatch) {
     setSaving(true)
     try {
       const updates = rowIndices.map(idx => ({
         rowIndex: idx,
-        scene: { ...scenes[idx], status: newStatus },
+        scene: applyBatchScenePatch(scenes[idx], patch),
       }))
       await getDataService(token).batchUpdateScenes(project, episode, updates)
       const targetSet = new Set(rowIndices)
       const updated = scenes.map((r, i) =>
-        targetSet.has(i) ? { ...r, status: newStatus } : r,
+        targetSet.has(i) ? applyBatchScenePatch(r, patch) : r,
       )
       cache.setEpisodeScenes(episode, () => updated)
       syncSummary(updated)
     } catch (e: unknown) {
       alert('批次更新失敗：' + (e instanceof Error ? e.message : String(e)))
-      throw e
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleBatchUpdateDate(rowIndices: number[], newDate: string) {
-    setSaving(true)
-    try {
-      const cleanedDate = newDate ? formatDate(newDate) : ''
-      const updates = rowIndices.map(idx => ({
-        rowIndex: idx,
-        scene: { ...scenes[idx], roughcutDate: cleanedDate },
-      }))
-      await getDataService(token).batchUpdateScenes(project, episode, updates)
-      const targetSet = new Set(rowIndices)
-      const updated = scenes.map((r, i) =>
-        targetSet.has(i) ? { ...r, roughcutDate: cleanedDate } : r,
-      )
-      cache.setEpisodeScenes(episode, () => updated)
-      syncSummary(updated)
-    } catch (e: unknown) {
-      alert('批次更新日期失敗：' + (e instanceof Error ? e.message : String(e)))
       throw e
     } finally {
       setSaving(false)
@@ -376,8 +355,7 @@ export default function EpisodeDetail({ episode, token, cache, onNavigate, onOpe
               onUpdateScene={handleUpdateScene}
               onAppendScene={handleAppendScene}
               onDeleteScene={handleDeleteScene}
-              onBatchUpdateStatus={handleBatchUpdateStatus}
-              onBatchUpdateDate={handleBatchUpdateDate}
+              onBatchUpdate={handleBatchUpdate}
               onBatchDeleteScenes={handleBatchDeleteScenes}
               onOpenBatchImport={() => setShowBatchImport(true)}
               onOpenExportMD={() => setShowExportMD(true)}

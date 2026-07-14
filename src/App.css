@@ -379,6 +379,135 @@
   cursor: pointer;
 }
 
+/* ==== 批次修改視窗（桌機置中、手機 Bottom Sheet） ==== */
+.batch-update-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+  animation: fade-in 0.2s ease;
+}
+
+.batch-update-dialog {
+  width: min(420px, 100%);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.batch-update-handle {
+  display: none;
+}
+
+.batch-update-header {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.batch-update-title {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.batch-update-close {
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.batch-update-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.batch-update-footer {
+  padding: 12px 20px;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.batch-update-footer button {
+  flex: 1;
+  padding: 11px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.batch-update-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.batch-update-submit {
+  background: var(--text-primary);
+  color: var(--bg);
+  border: none;
+}
+
+.batch-update-close:disabled,
+.batch-update-footer button:disabled,
+.batch-update-body input:disabled,
+.batch-update-body select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media screen and (max-width: 768px) {
+  .batch-update-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .batch-update-dialog {
+    width: 100%;
+    max-width: 640px;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    animation: slide-up 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+
+  .batch-update-handle {
+    display: block;
+    width: 40px;
+    height: 4px;
+    flex-shrink: 0;
+    margin: 8px auto 0;
+    background: #444;
+    border-radius: 4px;
+  }
+
+  .batch-update-header {
+    padding: 10px 20px 12px;
+  }
+
+  .batch-update-footer {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* ==== 表單欄位 ==== */
 .form-field {
   display: flex;
@@ -477,15 +606,6 @@
   padding: 6px 10px;
   font-size: 12px;
   cursor: pointer;
-}
-
-.mobile-batch-date {
-  background: #0f2038;
-  border: 1px solid #60a5fa;
-  color: #e0ecff;
-  border-radius: 6px;
-  padding: 5px 8px;
-  font-size: 12px;
 }
 
 .mobile-batch-bar .mobile-batch-spacer { flex: 1; }
