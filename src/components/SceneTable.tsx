@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SceneRow } from '../types'
 import { formatRoughcutLength, formatDate, todayYMD } from '../lib/stats'
 import { saveBeforeSceneSwitch } from '../lib/sceneEditSwitch'
 import { rangeKeys } from '../lib/selectionRange'
+import { buildBatchUpdatePlan } from '../lib/batchSceneUpdate'
+import type { BatchScenePatch, BatchUpdateSettings } from '../lib/batchSceneUpdate'
 import { useIsMobile } from '../hooks/useMediaQuery'
 
 const FORM_STATUS_LIST = ['已精剪', '已初剪', '整場刪除'] as const
@@ -36,12 +38,11 @@ const EMPTY_SCENE: SceneRow = {
   roughcutDate: '', status: '', missingShots: '', outline: '', notes: '',
 }
 
-const BATCH_ACTIONS: { label: string; value: string }[] = [
-  { label: '已初剪', value: '已初剪' },
-  { label: '已精剪', value: '已精剪' },
-  { label: '整場刪除', value: '整場刪除' },
-  { label: '清除狀態', value: '' },
-]
+const EMPTY_BATCH_SETTINGS: BatchUpdateSettings = {
+  status: 'unchanged',
+  dateMode: 'unchanged',
+  date: '',
+}
 
 export const EP_COL_DEFS: { key: string; label: string }[] = [
   { key: 'sceneNum', label: '場次' },
@@ -84,8 +85,7 @@ interface Props {
   onUpdateScene: (rowIndex: number, scene: SceneRow) => Promise<void>
   onAppendScene: (scene: SceneRow) => Promise<void>
   onDeleteScene: (rowIndex: number) => Promise<void>
-  onBatchUpdateStatus: (rowIndices: number[], newStatus: string) => Promise<void>
-  onBatchUpdateDate: (rowIndices: number[], newDate: string) => Promise<void>
+  onBatchUpdate: (rowIndices: number[], patch: BatchScenePatch) => Promise<void>
   onBatchDeleteScenes: (rowIndices: number[]) => Promise<void>
   onOpenBatchImport: () => void
   onOpenExportMD: () => void
@@ -96,7 +96,7 @@ interface Props {
 export default function SceneTable({
   resetKey, scenes, saving,
   onUpdateScene, onAppendScene, onDeleteScene,
-  onBatchUpdateStatus, onBatchUpdateDate, onBatchDeleteScenes,
+  onBatchUpdate, onBatchDeleteScenes,
   onOpenBatchImport, onOpenExportMD, onOpenExportCSV, onOpenExportPDF,
 }: Props) {
   const isMobile = useIsMobile()
@@ -107,10 +107,9 @@ export default function SceneTable({
   const [showAddRow, setShowAddRow] = useState(false)
   const [newScene, setNewScene] = useState<SceneRow>(EMPTY_SCENE)
   const [selectedScenes, setSelectedScenes] = useState<Set<string>>(new Set())
-  const [showBatchMenu, setShowBatchMenu] = useState(false)
-  const [batchDate, setBatchDate] = useState(todayYMD)
+  const [showBatchUpdate, setShowBatchUpdate] = useState(false)
+  const [batchSettings, setBatchSettings] = useState<BatchUpdateSettings>(EMPTY_BATCH_SETTINGS)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
-  const batchMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const draftRef = useRef<SceneRow | null>(null)
   const editRowRef = useRef<number | null>(null)
@@ -122,6 +121,16 @@ export default function SceneTable({
 
   useEffect(() => { draftRef.current = draft }, [draft])
   useEffect(() => { editRowRef.current = editRow }, [editRow])
+
+  const resetBatchSettings = useCallback(() => {
+    setBatchSettings(EMPTY_BATCH_SETTINGS)
+  }, [])
+
+  const closeBatchUpdate = useCallback(() => {
+    if (saving) return
+    setShowBatchUpdate(false)
+    resetBatchSettings()
+  }, [resetBatchSettings, saving])
 
   useEffect(() => {
     if (editRow === null || !focusLengthOnEditRef.current) return
@@ -136,38 +145,44 @@ export default function SceneTable({
     setFilter('全部')
     setSearch('')
     setSelectedScenes(new Set())
-    setShowBatchMenu(false)
-    setBatchDate(todayYMD())
+    setShowBatchUpdate(false)
+    resetBatchSettings()
     setShowMobileMenu(false)
     editRowRef.current = null
     draftRef.current = null
     focusLengthOnEditRef.current = false
     lastQueuedDraftKeyRef.current = ''
     lastSelectedKeyRef.current = null
-  }, [resetKey])
+  }, [resetBatchSettings, resetKey])
 
   useEffect(() => {
-    if (!showBatchMenu && !showMobileMenu) return
+    if (!showMobileMenu) return
     function onDocClick(e: MouseEvent) {
-      if (batchMenuRef.current && !batchMenuRef.current.contains(e.target as Node)) {
-        setShowBatchMenu(false)
-      }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
         setShowMobileMenu(false)
       }
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
-  }, [showBatchMenu, showMobileMenu])
+  }, [showMobileMenu])
+
+  useEffect(() => {
+    if (!showBatchUpdate) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeBatchUpdate()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [closeBatchUpdate, showBatchUpdate])
 
   // Bottom sheet 打開時鎖住 body 捲動
   useEffect(() => {
-    const sheetOpen = isMobile && (editRow !== null || showAddRow)
+    const sheetOpen = isMobile && (editRow !== null || showAddRow || showBatchUpdate)
     if (!sheetOpen) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
-  }, [isMobile, editRow, showAddRow])
+  }, [isMobile, editRow, showAddRow, showBatchUpdate])
 
   useEffect(() => {
     if (editRow === null || isMobile) return
@@ -377,34 +392,20 @@ export default function SceneTable({
     lastSelectedKeyRef.current = sceneKey
   }
 
-  async function handleBatchStatus(newStatus: string) {
-    setShowBatchMenu(false)
+  async function handleBatchUpdate() {
     const targets = scenes
       .map((r, i) => ({ row: r, idx: i }))
       .filter(x => selectedScenes.has(x.row.scene))
     if (targets.length === 0) return
-    const statusLabel = newStatus || '清除狀態'
-    if (!confirm(`確定將 ${targets.length} 個場次改為 ${statusLabel}？`)) return
+    const plan = buildBatchUpdatePlan(batchSettings)
+    if (!plan) return
+    const message = `確定套用以下變更到 ${targets.length} 個場次？\n\n${plan.changes.join('\n')}`
+    if (!confirm(message)) return
     try {
-      await onBatchUpdateStatus(targets.map(t => t.idx), newStatus)
+      await onBatchUpdate(targets.map(t => t.idx), plan.patch)
       setSelectedScenes(new Set())
-    } catch {
-      // 父層已顯示錯誤
-    }
-  }
-
-  async function handleBatchDate(newDate: string) {
-    const targets = scenes
-      .map((r, i) => ({ row: r, idx: i }))
-      .filter(x => selectedScenes.has(x.row.scene))
-    if (targets.length === 0) return
-    const cleanedDate = newDate ? formatDate(newDate) : ''
-    const dateLabel = cleanedDate || '清除日期'
-    if (!confirm(`確定將 ${targets.length} 個場次改為 ${dateLabel}？`)) return
-    try {
-      await onBatchUpdateDate(targets.map(t => t.idx), cleanedDate)
-      setSelectedScenes(new Set())
-      setBatchDate(todayYMD())
+      setShowBatchUpdate(false)
+      resetBatchSettings()
     } catch {
       // 父層已顯示錯誤
     }
@@ -429,48 +430,58 @@ export default function SceneTable({
   const visibleKeys = filteredScenes.map(r => r.scene)
   const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every(k => selectedScenes.has(k))
   const someVisibleSelected = visibleKeys.some(k => selectedScenes.has(k))
+  const batchUpdateDialog = showBatchUpdate ? (
+    <BatchUpdateDialog
+      settings={batchSettings}
+      setSettings={setBatchSettings}
+      selectedCount={selectedCount}
+      saving={saving}
+      onSubmit={handleBatchUpdate}
+      onClose={closeBatchUpdate}
+    />
+  ) : null
 
   if (isMobile) {
     return (
-      <MobileView
-        filteredScenes={filteredScenes}
-        scenes={scenes}
-        selectedScenes={selectedScenes}
-        toggleSelectScene={toggleSelectScene}
-        filter={filter}
-        setFilter={setFilter}
-        search={search}
-        setSearch={setSearch}
-        selectedCount={selectedCount}
-        batchDate={batchDate}
-        setBatchDate={setBatchDate}
-        onStartEdit={(i) => openEdit(i)}
-        onOpenAdd={openAdd}
-        onClearSelection={() => setSelectedScenes(new Set())}
-        onBatchStatus={handleBatchStatus}
-        onBatchDate={handleBatchDate}
-        onBatchDelete={handleBatchDelete}
-        saving={saving}
-        showMobileMenu={showMobileMenu}
-        setShowMobileMenu={setShowMobileMenu}
-        mobileMenuRef={mobileMenuRef}
-        onOpenBatchImport={onOpenBatchImport}
-        onOpenExportMD={onOpenExportMD}
-        onOpenExportCSV={onOpenExportCSV}
-        onOpenExportPDF={onOpenExportPDF}
-        editRow={editRow}
-        draft={draft}
-        setDraft={setDraft}
-        onAutoSaveEdit={autosaveDraft}
-        onSaveEdit={saveEdit}
-        onCancelEdit={cancelEdit}
-        onDeleteEdit={handleDelete}
-        showAddRow={showAddRow}
-        newScene={newScene}
-        setNewScene={setNewScene}
-        onSaveNew={saveNew}
-        onCancelNew={cancelNew}
-      />
+      <>
+        <MobileView
+          filteredScenes={filteredScenes}
+          scenes={scenes}
+          selectedScenes={selectedScenes}
+          toggleSelectScene={toggleSelectScene}
+          filter={filter}
+          setFilter={setFilter}
+          search={search}
+          setSearch={setSearch}
+          selectedCount={selectedCount}
+          onStartEdit={(i) => openEdit(i)}
+          onOpenAdd={openAdd}
+          onClearSelection={() => setSelectedScenes(new Set())}
+          onOpenBatchUpdate={() => setShowBatchUpdate(true)}
+          onBatchDelete={handleBatchDelete}
+          saving={saving}
+          showMobileMenu={showMobileMenu}
+          setShowMobileMenu={setShowMobileMenu}
+          mobileMenuRef={mobileMenuRef}
+          onOpenBatchImport={onOpenBatchImport}
+          onOpenExportMD={onOpenExportMD}
+          onOpenExportCSV={onOpenExportCSV}
+          onOpenExportPDF={onOpenExportPDF}
+          editRow={editRow}
+          draft={draft}
+          setDraft={setDraft}
+          onAutoSaveEdit={autosaveDraft}
+          onSaveEdit={saveEdit}
+          onCancelEdit={cancelEdit}
+          onDeleteEdit={handleDelete}
+          showAddRow={showAddRow}
+          newScene={newScene}
+          setNewScene={setNewScene}
+          onSaveNew={saveNew}
+          onCancelNew={cancelNew}
+        />
+        {batchUpdateDialog}
+      </>
     )
   }
 
@@ -502,51 +513,13 @@ export default function SceneTable({
           </div>
           {selectedCount > 0 && (
             <>
-              <div style={s.batchWrap} ref={batchMenuRef}>
-                <button
-                  style={s.batchBtn}
-                  onClick={() => setShowBatchMenu(v => !v)}
-                  disabled={saving}
-                >
-                  批次修改狀態（{selectedCount}）
-                </button>
-                {showBatchMenu && (
-                  <div style={s.batchMenu}>
-                    {BATCH_ACTIONS.map(a => (
-                      <button
-                        key={a.label}
-                        style={s.batchMenuItem}
-                        onClick={() => handleBatchStatus(a.value)}
-                      >
-                        {a.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={s.batchDateWrap}>
-                <input
-                  style={s.batchDateInput}
-                  type="date"
-                  value={ymdToIso(batchDate)}
-                  onChange={e => setBatchDate(isoToYmd(e.target.value))}
-                  disabled={saving}
-                />
-                <button
-                  style={s.batchDateBtn}
-                  onClick={() => handleBatchDate(batchDate)}
-                  disabled={!batchDate || saving}
-                >
-                  批次修改日期（{selectedCount}）
-                </button>
-                <button
-                  style={s.batchDateClearBtn}
-                  onClick={() => handleBatchDate('')}
-                  disabled={saving}
-                >
-                  清除日期
-                </button>
-              </div>
+              <button
+                style={s.batchBtn}
+                onClick={() => setShowBatchUpdate(true)}
+                disabled={saving}
+              >
+                批次修改（{selectedCount}）
+              </button>
               <button
                 style={s.batchDeleteBtn}
                 onClick={handleBatchDelete}
@@ -807,7 +780,123 @@ export default function SceneTable({
           </table>
         </div>
       )}
+      {batchUpdateDialog}
     </>
+  )
+}
+
+interface BatchUpdateDialogProps {
+  settings: BatchUpdateSettings
+  setSettings: React.Dispatch<React.SetStateAction<BatchUpdateSettings>>
+  selectedCount: number
+  saving: boolean
+  onSubmit: () => Promise<void>
+  onClose: () => void
+}
+
+function BatchUpdateDialog({
+  settings, setSettings, selectedCount, saving, onSubmit, onClose,
+}: BatchUpdateDialogProps) {
+  const canApply = buildBatchUpdatePlan(settings) !== null && selectedCount > 0 && !saving
+
+  return (
+    <div
+      className="bottom-sheet-backdrop batch-update-backdrop no-print"
+      onClick={saving ? undefined : onClose}
+    >
+      <div
+        className="bottom-sheet batch-update-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="batch-update-title"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bottom-sheet-handle batch-update-handle" />
+        <div className="bottom-sheet-header batch-update-header">
+          <span id="batch-update-title" className="bottom-sheet-title">批次修改</span>
+          <button
+            className="bottom-sheet-close"
+            onClick={onClose}
+            disabled={saving}
+            aria-label="關閉"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="bottom-sheet-body batch-update-body">
+          <div className="form-field">
+            <label className="form-field-label" htmlFor="batch-update-status">狀態</label>
+            <select
+              id="batch-update-status"
+              className="form-field-select"
+              value={settings.status}
+              onChange={e => setSettings(prev => ({
+                ...prev,
+                status: e.target.value as BatchUpdateSettings['status'],
+              }))}
+              disabled={saving}
+            >
+              <option value="unchanged">維持不變</option>
+              <option value="roughcut">已初剪</option>
+              <option value="finecut">已精剪</option>
+              <option value="deleted">整場刪除</option>
+              <option value="clear">清除狀態</option>
+            </select>
+          </div>
+
+          <div className="form-field">
+            <label className="form-field-label" htmlFor="batch-update-date-mode">日期</label>
+            <select
+              id="batch-update-date-mode"
+              className="form-field-select"
+              value={settings.dateMode}
+              onChange={e => setSettings(prev => {
+                const dateMode = e.target.value as BatchUpdateSettings['dateMode']
+                return {
+                  ...prev,
+                  dateMode,
+                  date: dateMode === 'set' && !prev.date ? todayYMD() : prev.date,
+                }
+              })}
+              disabled={saving}
+            >
+              <option value="unchanged">維持不變</option>
+              <option value="set">指定日期</option>
+              <option value="clear">清除日期</option>
+            </select>
+          </div>
+
+          {settings.dateMode === 'set' && (
+            <div className="form-field">
+              <label className="form-field-label" htmlFor="batch-update-date">指定日期</label>
+              <input
+                id="batch-update-date"
+                className="form-field-input"
+                type="date"
+                value={ymdToIso(settings.date)}
+                onChange={e => setSettings(prev => ({
+                  ...prev,
+                  date: isoToYmd(e.target.value),
+                }))}
+                disabled={saving}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="bottom-sheet-footer">
+          <button className="bottom-sheet-cancel" onClick={onClose} disabled={saving}>取消</button>
+          <button
+            className="bottom-sheet-save"
+            onClick={() => { void onSubmit() }}
+            disabled={!canApply}
+          >
+            {saving ? '套用中⋯' : `套用到 ${selectedCount} 個場次`}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -825,13 +914,10 @@ interface MobileProps {
   search: string
   setSearch: (s: string) => void
   selectedCount: number
-  batchDate: string
-  setBatchDate: (s: string) => void
   onStartEdit: (i: number) => void
   onOpenAdd: () => void
   onClearSelection: () => void
-  onBatchStatus: (value: string) => void
-  onBatchDate: (value: string) => void
+  onOpenBatchUpdate: () => void
   onBatchDelete: () => void
   saving: boolean
   showMobileMenu: boolean
@@ -906,17 +992,7 @@ function MobileView(p: MobileProps) {
         <div className="mobile-batch-bar no-print">
           <span>已選 {p.selectedCount}</span>
           <span className="mobile-batch-spacer" />
-          <button onClick={() => p.onBatchStatus('已初剪')} disabled={p.saving}>→ 已初剪</button>
-          <button onClick={() => p.onBatchStatus('已精剪')} disabled={p.saving}>→ 已精剪</button>
-          <input
-            className="mobile-batch-date"
-            type="date"
-            value={ymdToIso(p.batchDate)}
-            onChange={e => p.setBatchDate(isoToYmd(e.target.value))}
-            disabled={p.saving}
-          />
-          <button onClick={() => p.onBatchDate(p.batchDate)} disabled={!p.batchDate || p.saving}>改日期</button>
-          <button onClick={() => p.onBatchDate('')} disabled={p.saving}>清日期</button>
+          <button onClick={p.onOpenBatchUpdate} disabled={p.saving}>批次修改</button>
           <button onClick={p.onBatchDelete} disabled={p.saving} style={{ borderColor: '#f87171', color: '#fca5a5' }}>刪除</button>
           <button onClick={p.onClearSelection}>取消</button>
         </div>
@@ -1199,37 +1275,13 @@ const s: Record<string, React.CSSProperties> = {
     background: 'transparent', border: 'none', color: '#666', fontSize: 11,
     cursor: 'pointer', padding: 2,
   },
-  batchWrap: { position: 'relative', marginLeft: 6 },
   batchBtn: {
-    padding: '6px 14px', background: '#1e3a5f', color: '#60a5fa',
+    padding: '6px 14px', marginLeft: 6, background: '#1e3a5f', color: '#60a5fa',
     border: '1px solid #2a5082', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-  },
-  batchDateWrap: { display: 'flex', alignItems: 'center', gap: 6, marginLeft: 6 },
-  batchDateInput: {
-    background: '#111', border: '1px solid #2a5082', borderRadius: 20,
-    color: 'var(--text-primary)', padding: '5px 10px', fontSize: 12,
-  },
-  batchDateBtn: {
-    padding: '6px 14px', background: '#1e3a5f', color: '#cfe1ff',
-    border: '1px solid #2a5082', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-  },
-  batchDateClearBtn: {
-    padding: '6px 12px', background: 'transparent', color: '#9ca3af',
-    border: '1px solid #444', borderRadius: 20, fontSize: 12, cursor: 'pointer',
   },
   batchDeleteBtn: {
     padding: '6px 14px', marginLeft: 6, background: 'transparent', color: '#f87171',
     border: '1px solid #f87171', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-  },
-  batchMenu: {
-    position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
-    background: '#1A1A1A', border: '1px solid #333', borderRadius: 6,
-    display: 'flex', flexDirection: 'column', minWidth: 140,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-  },
-  batchMenuItem: {
-    padding: '8px 14px', background: 'transparent', color: '#ccc',
-    border: 'none', textAlign: 'left', fontSize: 12, cursor: 'pointer',
   },
   actions: { display: 'flex', gap: 8 },
   actionBtn: {
