@@ -19,8 +19,14 @@ export function formatRoughcutLength(raw: string): string {
   const digits = raw.replace(/\D/g, '')
   if (!digits) return ''
   const padded = digits.padStart(6, '0').slice(-6)
-  const h = parseInt(padded.slice(0, 2), 10)
-  return `${h}:${padded.slice(2, 4)}:${padded.slice(4, 6)}`
+  const rawH = parseInt(padded.slice(0, 2), 10)
+  const rawM = parseInt(padded.slice(2, 4), 10)
+  const rawS = parseInt(padded.slice(4, 6), 10)
+  const totalSeconds = rawH * 3600 + rawM * 60 + rawS
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
 export function formatDate(raw: string): string {
