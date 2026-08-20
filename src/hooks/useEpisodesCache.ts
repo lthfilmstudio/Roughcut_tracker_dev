@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getDataService } from '../services'
 import { normalizeScene, computeEpisodeStats } from '../lib/stats'
-import { sortScenes, scenesOrderChanged } from '../lib/sceneSort'
+import { sortScenes } from '../lib/sceneSort'
 import { getTabNames, hasSummaryTab } from '../config/projectConfig'
 import { useProject } from '../contexts/ProjectContext'
 import type { SceneRow } from '../types'
@@ -39,26 +39,35 @@ export function useEpisodesCache(token: string | null): EpisodesCache {
         svc.fetchMeta(project),
       ])
       const normalized: EpisodesMap = {}
-      const rewriteTargets: { ep: string; sorted: SceneRow[] }[] = []
+      const rewriteTargets: { ep: string; updates: { rowIndex: number; scene: SceneRow }[] }[] = []
       for (const ep of episodes) {
         const raw = batch[ep] ?? []
         const n = raw.map(normalizeScene)
         const sorted = sortScenes(n)
         normalized[ep] = sorted
-        const orderChanged = scenesOrderChanged(n, sorted)
-        const normalizedChanged = n.some((nn, i) => (
+
+        // 只挑「內容真的被 normalize 改過」或「排序位置真的變了」的場次回寫，
+        // 不要整集一次 upsert（會連沒變的場次也戳一次 updated_at）。
+        const contentChanged = n.map((nn, i) => (
           nn.roughcutLength !== raw[i].roughcutLength || nn.roughcutDate !== raw[i].roughcutDate
         ))
-        if (orderChanged || normalizedChanged) {
-          rewriteTargets.push({ ep, sorted })
+        const origIndexOf = new Map<SceneRow, number>(n.map((scene, i) => [scene, i]))
+        const updates = sorted.flatMap((scene, newIndex) => {
+          const origIndex = origIndexOf.get(scene)!
+          if (origIndex !== newIndex || contentChanged[origIndex]) {
+            return [{ rowIndex: newIndex, scene }]
+          }
+          return []
+        })
+        if (updates.length > 0) {
+          rewriteTargets.push({ ep, updates })
         }
       }
       setScenes(normalized)
       setMeta(metaMap)
       loadedKeyRef.current = `${token}|${project.id}`
 
-      for (const { ep, sorted } of rewriteTargets) {
-        const updates = sorted.map((scene, rowIndex) => ({ rowIndex, scene }))
+      for (const { ep, updates } of rewriteTargets) {
         svc.batchUpdateScenes(project, ep, updates).catch(() => {})
       }
       if (hasSummaryTab(project)) {
