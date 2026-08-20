@@ -134,7 +134,9 @@ create table super_admins (
 create or replace function touch_updated_at()
 returns trigger language plpgsql as $$
 begin
-  new.updated_at := now();
+  if new is distinct from old then
+    new.updated_at := now();
+  end if;
   return new;
 end;
 $$;
