@@ -192,6 +192,7 @@ export default function SceneTable({
       const target = e.target as Element | null
       if (target?.closest('[data-scene-edit-trigger="true"]')) return
       if (target?.closest('[data-scene-cancel-trigger="true"]')) return
+      if (target?.closest('[data-scene-save-trigger="true"]')) return
       const clickedInsideEdit = !!target?.closest('[data-scene-editing="true"]')
       queueAutoSave(editRow, currentDraft, { close: !clickedInsideEdit })
     }
@@ -273,10 +274,21 @@ export default function SceneTable({
     const nextKey = `${close ? 'close' : 'stay'}:${i}:${JSON.stringify(nextDraft)}`
     if (lastQueuedDraftKeyRef.current === nextKey) return autoSaveQueueRef.current
     lastQueuedDraftKeyRef.current = nextKey
-    const run = async () => saveEdit(i, { close: close ? true : false, nextDraft })
+    const run = async () => {
+      const saved = await saveEdit(i, { close, nextDraft })
+      // A failed draft must be retryable without requiring another edit.
+      if (!saved && lastQueuedDraftKeyRef.current === nextKey) lastQueuedDraftKeyRef.current = ''
+      return saved
+    }
     const nextSave = autoSaveQueueRef.current.catch(() => false).then(run)
     autoSaveQueueRef.current = nextSave
     return nextSave
+  }
+
+  function saveAndCloseEdit(i: number): Promise<boolean> {
+    const currentDraft = draftRef.current
+    // Serialize explicit saves after blur autosaves so the latest draft wins.
+    return currentDraft ? queueAutoSave(i, currentDraft, { close: true }) : Promise.resolve(true)
   }
 
   function autosaveDraft(i: number, patch: Partial<SceneRow>) {
@@ -325,7 +337,7 @@ export default function SceneTable({
   }
 
   function editKeyDown(e: React.KeyboardEvent, i: number) {
-    if (e.key === 'Enter') { e.preventDefault(); saveEdit(i) }
+    if (e.key === 'Enter') { e.preventDefault(); void saveAndCloseEdit(i) }
     if (e.key === 'Escape') cancelEdit()
   }
 
@@ -471,7 +483,7 @@ export default function SceneTable({
           draft={draft}
           setDraft={setDraft}
           onAutoSaveEdit={autosaveDraft}
-          onSaveEdit={saveEdit}
+          onSaveEdit={saveAndCloseEdit}
           onCancelEdit={cancelEdit}
           onDeleteEdit={handleDelete}
           showAddRow={showAddRow}
@@ -658,7 +670,7 @@ export default function SceneTable({
                           />
                         </td>
                         <td style={s.td} className="no-print" onClick={e => e.stopPropagation()}>
-                          <button style={s.saveBtn} onClick={() => saveEdit(i)} disabled={saving}>{saving ? '⋯' : '儲存'}</button>
+                          <button style={s.saveBtn} data-scene-save-trigger="true" onClick={() => saveAndCloseEdit(i)}>儲存</button>
                           <button
                             style={s.cancelBtn}
                             data-scene-cancel-trigger="true"
@@ -1111,7 +1123,8 @@ interface SheetProps {
 function SceneFormSheet({
   title, saving, value, onChange, onAutoSave, saveOnBackdrop, onSave, onCancel, onDelete,
 }: SheetProps) {
-  const canSave = !!value.scene && !saving
+  // Editing can enqueue a final save while a blur autosave is still pending.
+  const canSave = !!value.scene && (!!onAutoSave || !saving)
   function changeAndSave(patch: Partial<SceneRow>) {
     onChange(patch)
     onAutoSave?.(patch)
