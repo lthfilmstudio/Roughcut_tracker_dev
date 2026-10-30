@@ -1,4 +1,4 @@
-import { formatDate } from './stats.ts'
+import { formatDate, formatRoughcutLength } from './stats.ts'
 import type { SceneRow } from '../types/index.ts'
 
 type BatchStatusChoice =
@@ -9,14 +9,17 @@ type BatchStatusChoice =
   | 'clear'
 
 type BatchDateMode = 'unchanged' | 'set' | 'clear'
+type BatchLengthMode = 'unchanged' | 'set' | 'clear'
 
 export interface BatchUpdateSettings {
   status: BatchStatusChoice
   dateMode: BatchDateMode
   date: string
+  lengthMode: BatchLengthMode
+  length: string
 }
 
-export type BatchScenePatch = Partial<Pick<SceneRow, 'status' | 'roughcutDate'>>
+export type BatchScenePatch = Partial<Pick<SceneRow, 'status' | 'roughcutDate' | 'roughcutLength'>>
 
 interface BatchUpdatePlan {
   patch: BatchScenePatch
@@ -32,6 +35,7 @@ const statusValues: Record<Exclude<BatchStatusChoice, 'unchanged'>, string> = {
 
 export function buildBatchUpdatePlan(settings: BatchUpdateSettings): BatchUpdatePlan | null {
   if (settings.dateMode === 'set' && !settings.date.trim()) return null
+  if (settings.lengthMode === 'set' && !formatRoughcutLength(settings.length)) return null
 
   const patch: BatchScenePatch = {}
   const changes: string[] = []
@@ -46,6 +50,11 @@ export function buildBatchUpdatePlan(settings: BatchUpdateSettings): BatchUpdate
     changes.push(patch.roughcutDate ? `日期：${patch.roughcutDate}` : '日期：清除')
   }
 
+  if (settings.lengthMode !== 'unchanged') {
+    patch.roughcutLength = settings.lengthMode === 'set' ? formatRoughcutLength(settings.length) : ''
+    changes.push(patch.roughcutLength ? `長度：${patch.roughcutLength}` : '長度：清除')
+  }
+
   return changes.length > 0 ? { patch, changes } : null
 }
 
@@ -57,5 +66,6 @@ export function hasBatchSceneChanges(scene: SceneRow, patch: BatchScenePatch): b
   return (
     ('status' in patch && scene.status !== patch.status)
     || ('roughcutDate' in patch && scene.roughcutDate !== patch.roughcutDate)
+    || ('roughcutLength' in patch && scene.roughcutLength !== patch.roughcutLength)
   )
 }

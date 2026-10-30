@@ -12,6 +12,8 @@ const unchanged: BatchUpdateSettings = {
   status: 'unchanged',
   dateMode: 'unchanged',
   date: '',
+  lengthMode: 'unchanged',
+  length: '',
 }
 
 const scene: SceneRow = {
@@ -31,7 +33,7 @@ test('returns no plan when status and date are unchanged', () => {
 
 test('returns no plan when set date is empty', () => {
   assert.equal(buildBatchUpdatePlan({ ...unchanged, dateMode: 'set' }), null)
-  assert.equal(buildBatchUpdatePlan({ status: 'roughcut', dateMode: 'set', date: '  ' }), null)
+  assert.equal(buildBatchUpdatePlan({ ...unchanged, status: 'roughcut', dateMode: 'set', date: '  ' }), null)
 })
 
 test('sets or clears status without including roughcutDate', () => {
@@ -56,9 +58,29 @@ test('sets or clears date without including status', () => {
   )
 })
 
+test('returns no plan when set length has no digits', () => {
+  assert.equal(buildBatchUpdatePlan({ ...unchanged, lengthMode: 'set' }), null)
+  assert.equal(buildBatchUpdatePlan({ ...unchanged, lengthMode: 'set', length: ' : ' }), null)
+})
+
+test('sets or clears length, carrying overflow seconds into minutes', () => {
+  assert.deepEqual(
+    buildBatchUpdatePlan({ ...unchanged, lengthMode: 'set', length: '0130' }),
+    { patch: { roughcutLength: '00:01:30' }, changes: ['長度：00:01:30'] },
+  )
+  assert.deepEqual(
+    buildBatchUpdatePlan({ ...unchanged, lengthMode: 'set', length: '90' }),
+    { patch: { roughcutLength: '00:01:30' }, changes: ['長度：00:01:30'] },
+  )
+  assert.deepEqual(
+    buildBatchUpdatePlan({ ...unchanged, lengthMode: 'clear' }),
+    { patch: { roughcutLength: '' }, changes: ['長度：清除'] },
+  )
+})
+
 test('sets status and date in one patch', () => {
   assert.deepEqual(
-    buildBatchUpdatePlan({ status: 'deleted', dateMode: 'set', date: '2026/7/14' }),
+    buildBatchUpdatePlan({ ...unchanged, status: 'deleted', dateMode: 'set', date: '2026/7/14' }),
     {
       patch: { status: '整場刪除', roughcutDate: '2026/07/14' },
       changes: ['狀態：整場刪除', '日期：2026/07/14'],
@@ -68,7 +90,7 @@ test('sets status and date in one patch', () => {
 
 test('clears status and date in one patch', () => {
   assert.deepEqual(
-    buildBatchUpdatePlan({ status: 'clear', dateMode: 'clear', date: '' }),
+    buildBatchUpdatePlan({ ...unchanged, status: 'clear', dateMode: 'clear', date: '' }),
     {
       patch: { status: '', roughcutDate: '' },
       changes: ['狀態：清除', '日期：清除'],
@@ -90,6 +112,8 @@ test('detects whether a patch would change a scene', () => {
   assert.equal(hasBatchSceneChanges(scene, { roughcutDate: '2026/07/01' }), false)
   assert.equal(hasBatchSceneChanges(scene, { status: '已精剪' }), true)
   assert.equal(hasBatchSceneChanges(scene, { roughcutDate: '' }), true)
+  assert.equal(hasBatchSceneChanges(scene, { roughcutLength: '00:01:23' }), false)
+  assert.equal(hasBatchSceneChanges(scene, { roughcutLength: '00:02:00' }), true)
   assert.equal(hasBatchSceneChanges(scene, {}), false)
 })
 
@@ -99,7 +123,9 @@ test('confirmation changes match every field and value in the patch', () => {
     { ...unchanged, status: 'clear' },
     { ...unchanged, dateMode: 'set', date: '2026-07-14' },
     { ...unchanged, dateMode: 'clear' },
-    { status: 'finecut', dateMode: 'set', date: '2026-07-14' },
+    { ...unchanged, status: 'finecut', dateMode: 'set', date: '2026-07-14' },
+    { ...unchanged, lengthMode: 'set', length: '0130' },
+    { ...unchanged, lengthMode: 'clear' },
   ]
 
   for (const value of settings) {
@@ -113,6 +139,10 @@ test('confirmation changes match every field and value in the patch', () => {
     }
     if ('roughcutDate' in plan.patch) {
       const expected = plan.patch.roughcutDate ? `日期：${plan.patch.roughcutDate}` : '日期：清除'
+      assert.ok(plan.changes.includes(expected))
+    }
+    if ('roughcutLength' in plan.patch) {
+      const expected = plan.patch.roughcutLength ? `長度：${plan.patch.roughcutLength}` : '長度：清除'
       assert.ok(plan.changes.includes(expected))
     }
   }

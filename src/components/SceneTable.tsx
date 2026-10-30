@@ -42,6 +42,8 @@ const EMPTY_BATCH_SETTINGS: BatchUpdateSettings = {
   status: 'unchanged',
   dateMode: 'unchanged',
   date: '',
+  lengthMode: 'unchanged',
+  length: '',
 }
 
 export const EP_COL_DEFS: { key: string; label: string }[] = [
@@ -891,6 +893,40 @@ function BatchUpdateDialog({
                   ...prev,
                   date: isoToYmd(e.target.value),
                 }))}
+                disabled={saving}
+              />
+            </div>
+          )}
+
+          <div className="form-field">
+            <label className="form-field-label" htmlFor="batch-update-length-mode">長度</label>
+            <select
+              id="batch-update-length-mode"
+              className="form-field-select"
+              value={settings.lengthMode}
+              onChange={e => setSettings(prev => ({
+                ...prev,
+                lengthMode: e.target.value as BatchUpdateSettings['lengthMode'],
+              }))}
+              disabled={saving}
+            >
+              <option value="unchanged">維持不變</option>
+              <option value="set">指定長度</option>
+              <option value="clear">清除長度</option>
+            </select>
+          </div>
+
+          {settings.lengthMode === 'set' && (
+            <div className="form-field">
+              <label className="form-field-label" htmlFor="batch-update-length">指定長度</label>
+              <input
+                id="batch-update-length"
+                className="form-field-input"
+                inputMode="numeric"
+                placeholder="例：0130 = 00:01:30"
+                value={settings.length}
+                onChange={e => setSettings(prev => ({ ...prev, length: e.target.value }))}
+                onBlur={e => setSettings(prev => ({ ...prev, length: formatRoughcutLength(e.target.value) }))}
                 disabled={saving}
               />
             </div>
